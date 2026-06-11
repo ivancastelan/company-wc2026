@@ -221,6 +221,7 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 .pred-table th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)}
 .pred-table td{padding:6px 8px;border-bottom:1px solid var(--line-soft)}
 .pred-pred{font-weight:700;color:var(--blue-pill-ink)}
+.pred-best{background:var(--green-pill);border-radius:5px;padding:1px 5px;color:var(--green-pill-ink)}
 .pred-real{font-weight:700;color:var(--ink)}
 .pred-pts{font-weight:700;color:var(--pitch);text-align:center}
 .pred-muted{color:var(--ink-soft)}
@@ -510,12 +511,15 @@ const FLAGS={'Mexico':'🇲🇽','South Africa':'🇿🇦','South Korea':'🇰�
 const flag=t=>FLAGS[t]||'🏳️';
 function disp(t){return (state.nameOverrides&&state.nameOverrides[t])||t;}
 
+/* Per-match ET kickoff times, indexed by group and the app's match order
+   (pairs: [0v1, 2v3, 0v2, 3v1, 3v0, 1v2]). Times confirmed from official 2026
+   schedule listings (CBS Sports / ESPN, all Eastern Time). Dates paired alongside. */
 const GROUP_DATES={
   A:['2026-06-11','2026-06-11','2026-06-18','2026-06-18','2026-06-24','2026-06-24'],
   B:['2026-06-12','2026-06-13','2026-06-18','2026-06-18','2026-06-24','2026-06-24'],
   C:['2026-06-13','2026-06-13','2026-06-19','2026-06-19','2026-06-24','2026-06-24'],
-  D:['2026-06-12','2026-06-12','2026-06-19','2026-06-19','2026-06-25','2026-06-25'],
-  E:['2026-06-14','2026-06-13','2026-06-20','2026-06-20','2026-06-25','2026-06-25'],
+  D:['2026-06-12','2026-06-13','2026-06-19','2026-06-19','2026-06-25','2026-06-25'],
+  E:['2026-06-13','2026-06-14','2026-06-20','2026-06-20','2026-06-25','2026-06-25'],
   F:['2026-06-14','2026-06-14','2026-06-20','2026-06-20','2026-06-25','2026-06-25'],
   G:['2026-06-15','2026-06-15','2026-06-21','2026-06-21','2026-06-26','2026-06-26'],
   H:['2026-06-15','2026-06-15','2026-06-21','2026-06-21','2026-06-26','2026-06-26'],
@@ -524,15 +528,26 @@ const GROUP_DATES={
   K:['2026-06-17','2026-06-17','2026-06-23','2026-06-23','2026-06-27','2026-06-27'],
   L:['2026-06-17','2026-06-17','2026-06-23','2026-06-23','2026-06-27','2026-06-27']
 };
-const DEFAULT_ET=['15:00','18:00','15:00','18:00','15:00','18:00'];
-const ET_OVERRIDES={A:{0:'15:00',5:'23:00'},B:{0:'15:00',4:'18:00'},D:{0:'21:00'}};
+const GROUP_ET={
+  A:['15:00','22:00','23:00','12:00','21:00','21:00'],
+  B:['15:00','15:00','15:00','18:00','15:00','15:00'],
+  C:['18:00','21:00','18:00','21:00','18:00','18:00'],
+  D:['21:00','00:00','15:00','00:00','22:00','22:00'],
+  E:['13:00','16:00','16:00','19:00','16:00','16:00'],
+  F:['19:00','22:00','13:00','01:00','19:00','19:00'],
+  G:['12:00','15:00','15:00','18:00','15:00','15:00'],
+  H:['18:00','21:00','18:00','21:00','18:00','18:00'],
+  I:['15:00','18:00','13:00','16:00','15:00','15:00'],
+  J:['21:00','00:00','13:00','17:00','20:00','23:00'],
+  K:['13:00','16:00','13:00','16:00','15:00','15:00'],
+  L:['16:00','19:00','19:00','22:00','15:00','15:00']
+};
 function pad(n){return n<10?'0'+n:''+n;}
 function groupMatches(g){
-  const t=GROUPS[g],d=GROUP_DATES[g];
+  const t=GROUPS[g],d=GROUP_DATES[g],et=GROUP_ET[g];
   const pairs=[[0,1],[2,3],[0,2],[3,1],[3,0],[1,2]];
   return pairs.map((p,i)=>{
-    const et=(ET_OVERRIDES[g]&&ET_OVERRIDES[g][i])||DEFAULT_ET[i];
-    return {id:`G_${g}_${i}`,group:g,home:t[p[0]],away:t[p[1]],date:d[i],etTime:et,kickoffUTC:`${d[i]}T${et}:00-04:00`};
+    return {id:`G_${g}_${i}`,group:g,home:t[p[0]],away:t[p[1]],date:d[i],etTime:et[i],kickoffUTC:`${d[i]}T${et[i]}:00-04:00`};
   });
 }
 function allGroupMatches(){return Object.keys(GROUPS).flatMap(groupMatches);}
@@ -947,18 +962,35 @@ function breakdownMatch(p,r){
   const exact=(r.h===p.h&&r.a===p.a)?3:0;
   return {outcome,gd,exact};
 }
-function teamBreakdown(uids){
-  let outcome=0,gd=0,exact=0,picks=0;
+/* For one match, pick the member prediction that yields the MOST points.
+   Returns {pred, uid, b:{outcome,gd,exact}, total} or null if no member predicted. */
+function teamBestForMatch(uids,mid){
+  const r=state.results[mid];
+  let best=null;
   uids.forEach(id=>{
-    const preds=predOf(id);
-    Object.keys(state.results||{}).forEach(mid=>{
-      const p=preds[mid],r=state.results[mid];
-      if(p&&p.h!=null&&p.h!==''){const b=breakdownMatch(p,r);outcome+=b.outcome;gd+=b.gd;exact+=b.exact;}
-    });
-    picks+=Object.values(preds).filter(p=>p.h!=null&&p.h!=='').length;
+    const p=predOf(id)[mid];
+    if(!p||p.h==null||p.h==='')return;
+    const b=r?breakdownMatch(p,r):{outcome:0,gd:0,exact:0};
+    const total=b.outcome+b.gd+b.exact;
+    if(!best || total>best.total){best={pred:p,uid:id,b,total};}
   });
-  return {outcome,gd,exact,total:outcome+gd+exact,picks};
+  return best;
 }
+/* Team-level breakdown: per match, only the BEST single member prediction counts
+   (max 7 pts/match). Picks = number of distinct matches the team predicted. */
+function teamBreakdown(uids){
+  let outcome=0,gd=0,exact=0;
+  // points only from matches that have a real result
+  Object.keys(state.results||{}).forEach(mid=>{
+    const best=teamBestForMatch(uids,mid);
+    if(best){outcome+=best.b.outcome;gd+=best.b.gd;exact+=best.b.exact;}
+  });
+  // distinct matches predicted by the team (any member)
+  const predicted=new Set();
+  uids.forEach(id=>{const preds=predOf(id);Object.keys(preds).forEach(mid=>{const p=preds[mid];if(p&&p.h!=null&&p.h!=='')predicted.add(mid);});});
+  return {outcome,gd,exact,total:outcome+gd+exact,picks:predicted.size};
+}
+function teamPoints(uids){return teamBreakdown(uids).total;}
 function teamAvatarHTML(tm,size){
   const cls=size==='sm'?'team-ava':'team-ava';
   const photo=(state.teamPhotos&&state.teamPhotos[tm.name])||null;
@@ -981,20 +1013,26 @@ function expandedRowHTML(tm){
   // build rows: only matches where there's a result OR at least one member predicted
   const rowsHtml = ties.map(m=>{
     const r=state.results[m.id];
+    const best=r?teamBestForMatch(uids,m.id):null; // which member's pred counts
     const memberCells=uids.map(id=>{
       const p=predOf(id)[m.id];
       if(!p||p.h==null||p.h==='')return `<span class="pred-muted">—</span>`;
       const b=r?breakdownMatch(p,r):null;
       const pts=b?(b.outcome+b.gd+b.exact):null;
-      return `<span class="pred-pred">${p.h}–${p.a}</span>${pts!=null?` <span class="pred-pts">(+${pts})</span>`:''}`;
+      const isBest=best&&best.uid===id&&best.total>0;
+      const star=isBest?' ★':'';
+      const cls=isBest?'pred-pred pred-best':'pred-pred';
+      return `<span class="${cls}">${p.h}–${p.a}</span>${pts!=null?` <span class="pred-pts">(+${pts})</span>`:''}${star}`;
     });
     const anyPred=uids.some(id=>{const p=predOf(id)[m.id];return p&&p.h!=null&&p.h!=='';});
     if(!r && !anyPred) return '';
     const realStr = r? `${r.h}–${r.a}` : '<span class="pred-muted">—</span>';
+    const teamPts = best? best.total : 0;
     return `<tr>
       <td>${flag(m.home)} ${disp(m.home)} <span class="pred-muted">v</span> ${disp(m.away)} ${flag(m.away)}</td>
       <td class="pred-real">${realStr}</td>
       <td>${memberCells.join(' · ')}</td>
+      <td class="pred-pts">${r?('+'+teamPts):'—'}</td>
     </tr>`;
   }).filter(Boolean).join('');
   const memberHead = uids.map(id=>state.users[id]?fullName(state.users[id]):'').filter(Boolean).join(' · ');
@@ -1003,9 +1041,10 @@ function expandedRowHTML(tm){
       <button class="${phase==='group'?'on':''}" onclick="setExpandPhase('${tm.name.replace(/'/g,"\\'")}','group',event)">Group stage</button>
       <button class="${phase==='ko'?'on':''}" onclick="setExpandPhase('${tm.name.replace(/'/g,"\\'")}','ko',event)">Knockouts</button>
     </div>
+    <p class="pred-muted" style="font-size:11px;margin-bottom:8px">★ marks the member prediction that counts for the team that match (the best one). Only that prediction scores — max 7 pts per match.</p>
     <table class="pred-table">
-      <thead><tr><th>Match</th><th>Real result</th><th>Team predictions ${memberHead?'· '+memberHead:''}</th></tr></thead>
-      <tbody>${rowsHtml||'<tr><td colspan="3" class="pred-muted">No predictions or results yet for this stage.</td></tr>'}</tbody>
+      <thead><tr><th>Match</th><th>Real result</th><th>Team predictions ${memberHead?'· '+memberHead:''}</th><th>Team pts</th></tr></thead>
+      <tbody>${rowsHtml||'<tr><td colspan="4" class="pred-muted">No predictions or results yet for this stage.</td></tr>'}</tbody>
     </table>
   </div></div>`;
 }
@@ -1131,7 +1170,7 @@ function renderAdminTeams(){
   const body=document.getElementById('adminTeamsBody');
   const teams=Object.keys(state.teams||{});
   if(!teams.length){body.innerHTML='<p class="ph-sub" style="margin:0">No teams yet.</p>';return;}
-  body.innerHTML=teams.map(t=>{const tm=state.teams[t];const pts=(tm.memberUids||[]).reduce((s,id)=>s+userPoints(id),0);const full=(tm.memberUids||[]).length>=3;
+  body.innerHTML=teams.map(t=>{const tm=state.teams[t];const pts=teamPoints(tm.memberUids||[]);const full=(tm.memberUids||[]).length>=3;
     return `<div class="kv"><span><b>${t}</b><div class="members">${(tm.members||[]).join(' · ')||'<i>no members</i>'}</div></span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill p-pts">${pts} pts</span>
     <button class="btn btn-ghost btn-sm" onclick="adminAddMember('${t.replace(/'/g,"\\'")}')" ${full?'disabled title="Team is full (3)"':''}>+ Member</button>
     <button class="btn btn-ghost btn-sm" onclick="adminRemoveMember('${t.replace(/'/g,"\\'")}')">- Member</button>
