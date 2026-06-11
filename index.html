@@ -198,10 +198,6 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
   <div class="auth-card">
     <h2>Berlitz World Cup Predictor</h2>
     <p class="sub">Berlitz Technical Support · FIFA World Cup 2026</p>
-    <div class="auth-tabs">
-      <button id="atLogin" class="on" onclick="authTab('login')">Sign in</button>
-      <button id="atRegister" onclick="authTab('register')">Create account</button>
-    </div>
     <div class="auth-err" id="authErr"></div>
     <div class="auth-ok" id="authOk"></div>
 
@@ -213,39 +209,12 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
       </div>
       <div class="field"><label>Password</label><input type="password" id="liPass" placeholder="••••••••" autocomplete="current-password"/></div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign in</button>
-    </div>
-
-    <!-- REGISTER -->
-    <div id="registerPane" style="display:none">
-      <div class="row2">
-        <div class="field"><label>First name *</label><input type="text" id="rgFirst" placeholder="Sebastián"/></div>
-        <div class="field"><label>Last name *</label><input type="text" id="rgLast" placeholder="Díaz"/></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Password *</label><input type="password" id="rgPass" placeholder="At least 6 characters"/></div>
-        <div class="field"><label>Repeat password *</label><input type="password" id="rgPass2" placeholder="Repeat"/></div>
-      </div>
-      <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create account &amp; continue</button>
-      <p class="sub" style="margin-top:12px;text-align:center">Your first and last name identify you. Next you'll build your team of three.</p>
+      <p class="sub" style="margin-top:14px;text-align:center">Accounts are created by your admin. If you can't sign in, ask an admin to set up your name and password.</p>
     </div>
   </div>
 </div>
 
 <!-- ============ TEAM SETUP OVERLAY ============ -->
-<div class="auth-bg" id="teamOverlay" style="display:none">
-  <div class="auth-card">
-    <h2>Build your team</h2>
-    <p class="sub">Pick up to three participants (including yourself) from the list. Teams can only be changed by an admin afterwards.</p>
-    <div class="auth-err" id="teamErr"></div>
-    <div class="field"><label>Team name *</label><input type="text" id="tsName" placeholder="e.g. The Polyglots"/></div>
-    <div class="field"><label>Member 1</label><select class="gsel" id="tsM1"></select></div>
-    <div class="field"><label>Member 2</label><select class="gsel" id="tsM2"></select></div>
-    <div class="field"><label>Member 3</label><select class="gsel" id="tsM3"></select></div>
-    <button class="btn btn-primary" style="width:100%" onclick="createTeam()">Create team</button>
-    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="skipTeam()">Join an existing team / skip for now</button>
-  </div>
-</div>
-
 <div class="wrap" id="appWrap" style="display:none">
   <div class="hero">
     <div class="hero-eyebrow">
@@ -277,8 +246,23 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
     <button class="tab active" data-tab="group" onclick="showTab('group')">Group Stage</button>
     <button class="tab" data-tab="knockout" onclick="showTab('knockout')">Knockouts</button>
     <button class="tab" data-tab="standings" onclick="showTab('standings')">Standings</button>
+    <button class="tab teamcreator-only" data-tab="teamcreator" onclick="showTab('teamcreator')" style="display:none">Team creator</button>
     <button class="tab admin-only" data-tab="admin" onclick="showTab('admin')" style="display:none">Admin</button>
   </div>
+
+  <!-- TEAM CREATOR -->
+  <section class="section" id="sec-teamcreator">
+    <div class="section-head"><h2>Team creator</h2></div>
+    <p class="section-sub">You're not on a team yet. Build one of up to three people — pick members from the list of existing users and give your team a name. Once created, only an admin can change it, so choose carefully. If you'd rather join a team that already exists, ask an admin to add you.</p>
+    <div class="card panel" style="max-width:520px">
+      <div class="auth-err" id="tcErr"></div>
+      <div class="field"><label>Team name *</label><input type="text" id="tcName" placeholder="e.g. The Polyglots"/></div>
+      <div class="field"><label>Member 1</label><select class="gsel" id="tcM1"></select></div>
+      <div class="field"><label>Member 2</label><select class="gsel" id="tcM2"></select></div>
+      <div class="field"><label>Member 3</label><select class="gsel" id="tcM3"></select></div>
+      <button class="btn btn-primary" onclick="createTeamInApp()">Create team</button>
+    </div>
+  </section>
 
   <!-- GROUP -->
   <section class="section active" id="sec-group">
@@ -589,43 +573,11 @@ function rerenderActive(){
 /* ============================================================
    AUTH UI
    ============================================================ */
-function authTab(which){
-  document.getElementById('atLogin').classList.toggle('on',which==='login');
-  document.getElementById('atRegister').classList.toggle('on',which==='register');
-  document.getElementById('loginPane').style.display=which==='login'?'block':'none';
-  document.getElementById('registerPane').style.display=which==='register'?'block':'none';
-  clearAuthMsg();
-}
 function authErr(m){const e=document.getElementById('authErr');e.textContent=m;e.className='auth-err show';document.getElementById('authOk').className='auth-ok';}
 function authOk(m){const e=document.getElementById('authOk');e.textContent=m;e.className='auth-ok show';document.getElementById('authErr').className='auth-err';}
 function clearAuthMsg(){document.getElementById('authErr').className='auth-err';document.getElementById('authOk').className='auth-ok';}
-function showAuth(){document.getElementById('authOverlay').style.display='flex';document.getElementById('appWrap').style.display='none';document.getElementById('teamOverlay').style.display='none';}
+function showAuth(){document.getElementById('authOverlay').style.display='flex';document.getElementById('appWrap').style.display='none';}
 
-async function doRegister(){
-  const first=document.getElementById('rgFirst').value.trim();
-  const last=document.getElementById('rgLast').value.trim();
-  const p1=document.getElementById('rgPass').value;
-  const p2=document.getElementById('rgPass2').value;
-  if(!first||!last){authErr('First name and last name are required.');return;}
-  if(p1.length<6){authErr('Password must be at least 6 characters.');return;}
-  if(p1!==p2){authErr('Passwords do not match.');return;}
-  const k=nameKey(first,last);
-  if(!fbReady){ // demo
-    if(state.users[k]){authErr('That name already exists. Try signing in.');return;}
-    state.users[k]={uid:k,first,last,role:'employee',team:null};saveLocal();
-    currentUid=k;sessionStorage.setItem('wc_uid',k);openTeamSetup();return;
-  }
-  try{
-    const cred=await auth.createUserWithEmailAndPassword(synthEmail(first,last),p1);
-    const uid=cred.user.uid;
-    await db.ref('users/'+uid).set({uid,first,last,role:'employee',team:null,key:k});
-    currentUid=uid;
-    openTeamSetup();
-  }catch(e){
-    if(e.code==='auth/email-already-in-use')authErr('An account with that name already exists. Try signing in, or add a middle initial.');
-    else authErr(e.message);
-  }
-}
 async function doLogin(){
   const first=document.getElementById('liFirst').value.trim();
   const last=document.getElementById('liLast').value.trim();
@@ -649,26 +601,31 @@ function logout(){
   currentUid=null;sessionStorage.removeItem('wc_uid');showAuth();
 }
 
-/* ---- Team setup overlay ---- */
-function teamMemberOptions(){
+/* ---- In-app Team creator (only when the user has no team) ---- */
+function teamMemberOptions(selfFirst){
   const users=Object.values(state.users||{});
   return '<option value="">— choose —</option>'+users.map(u=>`<option value="${u.uid}">${fullName(u)}</option>`).join('');
 }
-function openTeamSetup(){
-  document.getElementById('authOverlay').style.display='none';
-  document.getElementById('teamOverlay').style.display='flex';
+function populateTeamCreator(){
   const opts=teamMemberOptions();
-  ['tsM1','tsM2','tsM3'].forEach(id=>document.getElementById(id).innerHTML=opts);
-  document.getElementById('tsM1').value=currentUid;
+  ['tcM1','tcM2','tcM3'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  const m1=document.getElementById('tcM1'); if(m1)m1.value=currentUid; // default member 1 = you
+  const err=document.getElementById('tcErr'); if(err)err.className='auth-err';
 }
-async function createTeam(){
-  const name=document.getElementById('tsName').value.trim();
-  const ids=[document.getElementById('tsM1').value,document.getElementById('tsM2').value,document.getElementById('tsM3').value].filter(Boolean);
-  const err=document.getElementById('teamErr');
-  if(!name){err.textContent='Give your team a name.';err.className='auth-err show';return;}
-  if(new Set(ids).size!==ids.length){err.textContent='A member is selected twice.';err.className='auth-err show';return;}
-  if(ids.length<1){err.textContent='Pick at least one member.';err.className='auth-err show';return;}
-  if(state.teams[name]){err.textContent='That team name already exists.';err.className='auth-err show';return;}
+async function createTeamInApp(){
+  const u=currentUid?state.users[currentUid]:null;
+  const err=document.getElementById('tcErr');
+  const showErr=m=>{err.textContent=m;err.className='auth-err show';};
+  if(u&&u.team){showErr('You are already on a team. Ask an admin to change it.');return;}
+  const name=document.getElementById('tcName').value.trim();
+  const ids=[document.getElementById('tcM1').value,document.getElementById('tcM2').value,document.getElementById('tcM3').value].filter(Boolean);
+  if(!name){showErr('Give your team a name.');return;}
+  if(new Set(ids).size!==ids.length){showErr('A member is selected more than once.');return;}
+  if(ids.length<1){showErr('Pick at least one member.');return;}
+  if(state.teams[name]){showErr('That team name already exists.');return;}
+  // a person already on another team can't be added again
+  const taken=ids.find(id=>state.users[id]&&state.users[id].team);
+  if(taken){showErr(fullName(state.users[taken])+' is already on a team.');return;}
   const memberNames=ids.map(id=>{const p=state.users[id];return p?fullName(p):id;});
   const team={name,memberUids:ids,members:memberNames};
   state.teams[name]=team;
@@ -676,16 +633,16 @@ async function createTeam(){
   ids.forEach(id=>{ if(state.users[id]){state.users[id].team=name; updates['users/'+id+'/team']=name;} });
   if(fbReady){ await db.ref('teams/'+name).set(team); for(const p in updates)await db.ref(p).set(updates[p]); }
   else saveLocal();
-  enterApp();
+  toast('Team "'+name+'" created ✓');
+  refreshIdentity();
+  showTab('group');
 }
-function skipTeam(){enterApp();}
 
 /* ============================================================
    ENTER APP
    ============================================================ */
 function enterApp(){
   document.getElementById('authOverlay').style.display='none';
-  document.getElementById('teamOverlay').style.display='none';
   document.getElementById('appWrap').style.display='block';
   refreshIdentity();
   showTab('group');
@@ -699,6 +656,9 @@ function refreshIdentity(){
   if(u){rt.style.display='inline-flex';rt.textContent=u.role;rt.className='role-tag '+(u.role==='admin'?'role-admin':'role-emp');}
   else rt.style.display='none';
   document.querySelector('.tab.admin-only').style.display=(u&&u.role==='admin')?'block':'none';
+  // Team creator tab shows only when the user has no team
+  const tcTab=document.querySelector('.tab.teamcreator-only');
+  if(tcTab)tcTab.style.display=(u&&!u.team)?'block':'none';
 }
 
 /* ============================================================
@@ -707,11 +667,13 @@ function refreshIdentity(){
 function showTab(tab){
   const u=currentUid?state.users[currentUid]:null;
   if(tab==='admin'&&(!u||u.role!=='admin'))tab='group';
+  if(tab==='teamcreator'&&(!u||u.team))tab='group'; // already on a team -> no creator
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+tab).classList.add('active');
   if(tab==='group')renderGroup();if(tab==='knockout')renderKnockout();
   if(tab==='standings')renderStandings();if(tab==='admin')renderAdmin();
+  if(tab==='teamcreator')populateTeamCreator();
 }
 
 /* ============================================================
