@@ -345,14 +345,18 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
       </div>
 
       <div class="card panel">
-        <h3>Participant list</h3>
-        <p class="ph-sub">Add the people who can join teams. These names appear as a dropdown when an employee builds a team, so no one types a name by hand.</p>
-        <div class="row2" style="align-items:flex-end">
-          <div class="field" style="margin:0"><label>First name</label><input type="text" id="newPartFirst" placeholder="First"/></div>
-          <div class="field" style="margin:0"><label>Last name</label><input type="text" id="newPartLast" placeholder="Last"/></div>
-          <button class="btn btn-ghost btn-sm" onclick="addParticipant()">Add</button>
+        <h3>User accounts</h3>
+        <p class="ph-sub">Create full accounts for your team: name, corporate email and an initial password. These people can sign in right away, appear in the team dropdown, and can be promoted to admin below. Tell each person their initial password — they (or you) can change it anytime.</p>
+        <div class="row2">
+          <div class="field" style="margin:0 0 10px"><label>First name</label><input type="text" id="newUserFirst" placeholder="First"/></div>
+          <div class="field" style="margin:0 0 10px"><label>Last name</label><input type="text" id="newUserLast" placeholder="Last"/></div>
         </div>
-        <div id="participantsBody" style="margin-top:12px"></div>
+        <div class="row2" style="align-items:flex-end">
+          <div class="field" style="margin:0"><label>Corporate email</label><input type="email" id="newUserEmail" placeholder="name@berlitz.us"/></div>
+          <div class="field" style="margin:0"><label>Initial password</label><input type="text" id="newUserPass" placeholder="min 6 chars"/></div>
+          <button class="btn btn-ghost btn-sm" onclick="adminCreateUser()">Create account</button>
+        </div>
+        <div id="usersBody" style="margin-top:14px"></div>
       </div>
 
       <div class="card panel">
@@ -534,9 +538,7 @@ async function ensureSeedAdmin(){
   const hash=await hashPw(SEED_ADMIN.password);
   const user={uid:k,first:SEED_ADMIN.first,last:SEED_ADMIN.last,email:SEED_ADMIN.email,pass:hash,role:'admin',team:null};
   state.users[k]=user;
-  // also list Ivan as a participant
-  state.participants[k]={uid:k,first:SEED_ADMIN.first,last:SEED_ADMIN.last};
-  if(fbReady){ await db.ref('users/'+k).set(user); await db.ref('participants/'+k).set(state.participants[k]); }
+  if(fbReady){ await db.ref('users/'+k).set(user); }
   else saveLocal();
 }
 
@@ -604,9 +606,7 @@ async function doRegister(){
   const hash=await hashPw(p1);
   const user={uid:k,first,last,email,pass:hash,role:'employee',team:null};
   state.users[k]=user;
-  // add to participant list automatically so teammates can pick them
-  state.participants[k]={uid:k,first,last};
-  if(fbReady){ await db.ref('users/'+k).set(user); await db.ref('participants/'+k).set(state.participants[k]); }
+  if(fbReady){ await db.ref('users/'+k).set(user); }
   else saveLocal();
   currentUid=k; sessionStorage.setItem('wc_uid',k);
   openTeamSetup();
@@ -626,14 +626,15 @@ async function doLogin(){
 function logout(){currentUid=null;sessionStorage.removeItem('wc_uid');showAuth();}
 
 /* ---- Team setup overlay ---- */
+function teamMemberOptions(){
+  const users=Object.values(state.users||{});
+  return '<option value="">— choose —</option>'+users.map(u=>`<option value="${u.uid}">${fullName(u)}</option>`).join('');
+}
 function openTeamSetup(){
   document.getElementById('authOverlay').style.display='none';
   document.getElementById('teamOverlay').style.display='flex';
-  // populate participant dropdowns
-  const parts=Object.values(state.participants||{});
-  const opts='<option value="">— choose —</option>'+parts.map(p=>`<option value="${p.uid}">${p.first} ${p.last}</option>`).join('');
+  const opts=teamMemberOptions();
   ['tsM1','tsM2','tsM3'].forEach(id=>document.getElementById(id).innerHTML=opts);
-  // default member 1 = self
   document.getElementById('tsM1').value=currentUid;
 }
 async function createTeam(){
@@ -644,10 +645,9 @@ async function createTeam(){
   if(new Set(ids).size!==ids.length){err.textContent='A member is selected twice.';err.className='auth-err show';return;}
   if(ids.length<1){err.textContent='Pick at least one member.';err.className='auth-err show';return;}
   if(state.teams[name]){err.textContent='That team name already exists.';err.className='auth-err show';return;}
-  const memberNames=ids.map(id=>{const p=state.participants[id]||state.users[id];return p?(p.first+' '+p.last):id;});
+  const memberNames=ids.map(id=>{const p=state.users[id];return p?fullName(p):id;});
   const team={name,memberUids:ids,members:memberNames};
   state.teams[name]=team;
-  // assign team to each member user that exists
   const updates={};
   ids.forEach(id=>{ if(state.users[id]){state.users[id].team=name; updates['users/'+id+'/team']=name;} });
   if(fbReady){ await db.ref('teams/'+name).set(team); for(const p in updates)await db.ref(p).set(updates[p]); }
@@ -850,7 +850,7 @@ function renderAdmin(){
   if(!u||u.role!=='admin')return;
   const gf=document.getElementById('adminGroupFilter');
   if(!gf.options.length)gf.innerHTML=Object.keys(GROUPS).map(g=>`<option value="${g}">Group ${g}</option>`).join('');
-  renderAdminResults();renderParticipants();renderAdminTeams();renderAdminRoles();populateFixtureEditors();
+  renderAdminResults();renderUsers();renderAdminTeams();renderAdminRoles();populateFixtureEditors();
 }
 function renderAdminResults(){
   const stage=document.getElementById('adminStage').value;
@@ -867,28 +867,40 @@ async function saveResults(){
   if(fbReady){await db.ref('results').set(state.results);await db.ref('koWinners').set(state.koWinners);}else saveLocal();
   toast('Results saved — points recalculated ✓');renderAdmin();
 }
-/* Participants */
-function renderParticipants(){
-  const body=document.getElementById('participantsBody');
-  const parts=Object.values(state.participants||{});
-  if(!parts.length){body.innerHTML='<p class="ph-sub" style="margin:0">No participants yet. Add people above.</p>';return;}
-  body.innerHTML=parts.map(p=>`<div class="kv"><span>${p.first} ${p.last}</span><button class="btn btn-danger btn-sm" onclick="removeParticipant('${p.uid}')">Remove</button></div>`).join('');
+/* User accounts (admin-created) */
+function renderUsers(){
+  const body=document.getElementById('usersBody');
+  const users=Object.values(state.users||{});
+  if(!users.length){body.innerHTML='<p class="ph-sub" style="margin:0">No accounts yet.</p>';return;}
+  body.innerHTML=users.map(u=>`<div class="kv"><span><b>${fullName(u)}</b> <span class="members">${u.email} · ${u.team||'no team'}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="role-tag ${u.role==='admin'?'role-admin':'role-emp'}">${u.role}</span>${u.uid===currentUid?'':`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${u.uid}')">Delete</button>`}</span></div>`).join('');
 }
-async function addParticipant(){
-  const f=document.getElementById('newPartFirst').value.trim();
-  const l=document.getElementById('newPartLast').value.trim();
+async function adminCreateUser(){
+  const f=document.getElementById('newUserFirst').value.trim();
+  const l=document.getElementById('newUserLast').value.trim();
+  const email=document.getElementById('newUserEmail').value.trim();
+  const pw=document.getElementById('newUserPass').value;
   if(!f||!l){toast('Enter first and last name',true);return;}
-  const uid='p_'+(f+'_'+l).toLowerCase().replace(/[^a-z0-9]+/g,'_');
-  state.participants[uid]={uid,first:f,last:l};
-  if(fbReady)await db.ref('participants/'+uid).set(state.participants[uid]);else saveLocal();
-  document.getElementById('newPartFirst').value='';document.getElementById('newPartLast').value='';
-  renderParticipants();toast('Participant added');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('Enter a valid email',true);return;}
+  if(pw.length<6){toast('Password must be at least 6 characters',true);return;}
+  const k=emailKey(email);
+  if(state.users[k]){toast('An account with that email already exists',true);return;}
+  const hash=await hashPw(pw);
+  const user={uid:k,first:f,last:l,email,pass:hash,role:'employee',team:null};
+  state.users[k]=user;
+  if(fbReady)await db.ref('users/'+k).set(user);else saveLocal();
+  ['newUserFirst','newUserLast','newUserEmail','newUserPass'].forEach(id=>document.getElementById(id).value='');
+  renderAdmin();toast('Account created for '+f+' '+l);
 }
-async function removeParticipant(uid){
-  if(!confirm('Remove this participant from the list?'))return;
-  delete state.participants[uid];
-  if(fbReady)await db.ref('participants/'+uid).remove();else saveLocal();
-  renderParticipants();
+async function adminDeleteUser(uid){
+  const u=state.users[uid];if(!u)return;
+  if(u.role==='admin'){const admins=Object.values(state.users).filter(x=>x.role==='admin');if(admins.length<=1){toast('Can\'t delete the only admin',true);return;}}
+  if(!confirm('Delete account for '+fullName(u)+'? Their predictions are removed too.'))return;
+  delete state.users[uid];
+  if(state.predictions)delete state.predictions[uid];
+  // remove from any team
+  Object.keys(state.teams||{}).forEach(t=>{const tm=state.teams[t];if((tm.memberUids||[]).includes(uid)){const i=tm.memberUids.indexOf(uid);tm.memberUids.splice(i,1);if(tm.members)tm.members.splice(i,1);}});
+  if(fbReady){await db.ref('users/'+uid).remove();await db.ref('predictions/'+uid).remove();await db.ref('teams').set(state.teams);}else saveLocal();
+  renderAdmin();toast('Account deleted');
 }
 /* Teams (admin) */
 function renderAdminTeams(){
@@ -898,17 +910,18 @@ function renderAdminTeams(){
   body.innerHTML=teams.map(t=>{const tm=state.teams[t];const pts=(tm.memberUids||[]).reduce((s,id)=>s+userPoints(id),0);return `<div class="kv"><span><b>${t}</b><div class="members">${(tm.members||[]).join(' · ')}</div></span><span style="display:flex;gap:8px;align-items:center"><span class="pill p-pts">${pts} pts</span><button class="btn btn-ghost btn-sm" onclick="adminRenameTeam('${t.replace(/'/g,"\\'")}')">Rename</button><button class="btn btn-danger btn-sm" onclick="adminDeleteTeam('${t.replace(/'/g,"\\'")}')">Delete</button></span></div>`;}).join('');
 }
 async function adminCreateTeam(){
-  const parts=Object.values(state.participants||{});
-  if(parts.length<1){toast('Add participants first',true);return;}
+  const users=Object.values(state.users||{});
+  if(users.length<1){toast('Create user accounts first',true);return;}
   const name=prompt('Team name:');if(!name)return;
   if(state.teams[name]){toast('Team exists',true);return;}
-  const list=parts.map((p,i)=>`${i+1}. ${p.first} ${p.last}`).join('\n');
+  const list=users.map((p,i)=>`${i+1}. ${fullName(p)}`).join('\n');
   const pick=prompt('Enter up to 3 member numbers separated by commas:\n'+list);if(!pick)return;
-  const idx=pick.split(',').map(s=>parseInt(s.trim())-1).filter(i=>i>=0&&i<parts.length).slice(0,3);
-  const chosen=idx.map(i=>parts[i]);
-  const team={name,memberUids:chosen.map(p=>p.uid),members:chosen.map(p=>p.first+' '+p.last)};
+  const idx=pick.split(',').map(s=>parseInt(s.trim())-1).filter(i=>i>=0&&i<users.length).slice(0,3);
+  const chosen=idx.map(i=>users[i]);
+  if(!chosen.length){toast('No valid members picked',true);return;}
+  const team={name,memberUids:chosen.map(p=>p.uid),members:chosen.map(p=>fullName(p))};
   state.teams[name]=team;
-  chosen.forEach(p=>{if(state.users[p.uid]){state.users[p.uid].team=name;}});
+  chosen.forEach(p=>{if(state.users[p.uid])state.users[p.uid].team=name;});
   if(fbReady){await db.ref('teams/'+name).set(team);for(const p of chosen)if(state.users[p.uid])await db.ref('users/'+p.uid+'/team').set(name);}else saveLocal();
   renderAdmin();toast('Team created');
 }
