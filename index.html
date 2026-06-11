@@ -180,7 +180,57 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 .note{font-size:12px;color:var(--ink-soft);background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--pitch);border-radius:8px;padding:10px 13px;margin-bottom:16px}
 .note b{color:var(--ink)}
 
+/* Group tables */
+.gt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.gt-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.gt-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--paper-2);border-bottom:1px solid var(--line)}
+.gt-head .gt-name{font-family:var(--display);font-weight:800;font-size:15px}
+.gt-head .gt-prog{font-size:11px;color:var(--ink-soft)}
+.gt-table{width:100%;border-collapse:collapse;font-size:13px}
+.gt-table th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;padding:7px 8px;text-align:center;border-bottom:1px solid var(--line)}
+.gt-table th.l,.gt-table td.l{text-align:left}
+.gt-table td{padding:8px;text-align:center;border-bottom:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
+.gt-table tr:last-child td{border-bottom:none}
+.gt-team{display:flex;align-items:center;gap:8px;font-weight:600}
+.gt-team .flag{font-size:16px}
+.gt-pos{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700;color:#fff}
+.pos-q{background:#1c9e6a}.pos-3{background:#d99412}.pos-out{background:#c25555}
+.gt-pts{font-weight:800;color:var(--pitch)}
+.gt-row-q{background:linear-gradient(90deg,rgba(28,158,106,.08),transparent)}
+.gt-row-3{background:linear-gradient(90deg,rgba(217,148,18,.08),transparent)}
+.gt-row-out{background:linear-gradient(90deg,rgba(194,85,85,.07),transparent)}
+.gt-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--ink-soft);padding:9px 14px;border-top:1px solid var(--line-soft)}
+.gt-legend span{display:inline-flex;align-items:center;gap:5px}
+.gt-dot{width:10px;height:10px;border-radius:50%}
+
+/* Team avatar */
+.team-ava{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--line);background:var(--paper-2);flex:none}
+.team-ava-ph{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--pitch);color:#fff;font-weight:700;font-family:var(--display);font-size:15px;flex:none}
+.ava-edit{font-size:11px;color:var(--pitch);cursor:pointer;border:none;background:none;padding:2px 4px;font-weight:600}
+
+/* Standings expand */
+.lb-main-row{cursor:pointer}
+.lb-main-row:hover{background:var(--paper-2)}
+.expand-cell{padding:0!important}
+.expand-wrap{padding:0 14px 14px}
+.expand-inner{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.exp-seg{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:3px;gap:2px;margin-bottom:10px}
+.exp-seg button{border:none;background:none;font-size:12px;font-weight:600;color:var(--ink-soft);padding:5px 12px;border-radius:100px;cursor:pointer}
+.exp-seg button.on{background:var(--pitch);color:#fff}
+.pred-table{width:100%;border-collapse:collapse;font-size:12px}
+.pred-table th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)}
+.pred-table td{padding:6px 8px;border-bottom:1px solid var(--line-soft)}
+.pred-pred{font-weight:700;color:var(--blue-pill-ink)}
+.pred-real{font-weight:700;color:var(--ink)}
+.pred-pts{font-weight:700;color:var(--pitch);text-align:center}
+.pred-muted{color:var(--ink-soft)}
+.caret{display:inline-block;transition:transform .15s;color:var(--ink-soft);margin-left:6px}
+.caret.open{transform:rotate(90deg)}
+.col-mini{font-size:11px;color:var(--ink-soft);text-align:center}
 @media(max-width:620px){
+  .gt-grid{grid-template-columns:1fr}
+}
+
   .match-main{grid-template-columns:1fr auto 1fr;gap:8px}
   .match .grouptag{display:none}
   .match-meta{padding-left:0}
@@ -239,12 +289,15 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
     </div>
     <span class="role-tag role-emp" id="roleTag" style="display:none"></span>
     <div class="spacer"></div>
+    <button class="linkbtn" id="teamPhotoBtn" style="display:none" onclick="document.getElementById('teamPhotoInput').click()">Set team photo</button>
+    <input type="file" id="teamPhotoInput" accept="image/*" style="display:none" onchange="onTeamPhotoPicked(event)"/>
     <button class="linkbtn" onclick="logout()">Sign out</button>
   </div>
 
   <div class="tabs" id="tabs">
     <button class="tab active" data-tab="group" onclick="showTab('group')">Group Stage</button>
     <button class="tab" data-tab="knockout" onclick="showTab('knockout')">Knockouts</button>
+    <button class="tab" data-tab="grouptables" onclick="showTab('grouptables')">Group Tables</button>
     <button class="tab" data-tab="standings" onclick="showTab('standings')">Standings</button>
     <button class="tab teamcreator-only" data-tab="teamcreator" onclick="showTab('teamcreator')" style="display:none">Team creator</button>
     <button class="tab admin-only" data-tab="admin" onclick="showTab('admin')" style="display:none">Admin</button>
@@ -307,6 +360,13 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
       </div>
     </div>
     <div class="card"><div id="standingsBody"></div></div>
+  </section>
+
+  <!-- GROUP TABLES -->
+  <section class="section" id="sec-grouptables">
+    <div class="section-head"><h2>Group Tables</h2></div>
+    <p class="section-sub">Live group standings based on the real results entered by admins. <b>3</b> pts win · <b>1</b> pt draw · <b>0</b> loss. Sorted by points, then goal difference, then goals for. <span style="color:var(--green-pill-ink)">Top two qualify</span>, <span style="color:var(--amber-pill-ink)">3rd may advance</span> as a best third-placed team, <span style="color:var(--red-pill-ink)">4th is eliminated</span>.</p>
+    <div id="groupTablesBody" class="gt-grid"></div>
   </section>
 
   <!-- ADMIN -->
@@ -503,7 +563,7 @@ let currentUid=null;
 let groupView='date', lbView='team';
 
 function blankState(){
-  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{}};
+  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{},teamPhotos:{}};
 }
 function nameKey(first,last){return (first.trim()+'_'+last.trim()).toLowerCase().replace(/[.#$\[\]/\s]+/g,'_');}
 function fullName(u){return ((u.first||'')+' '+(u.last||'')).trim();}
@@ -540,10 +600,15 @@ async function ensureSeedAdmin(){
 async function boot(){
   const ok=initFirebase();
   if(ok){
-    db.ref('/').on('value',snap=>{
-      const v=snap.val()||{};
-      state=Object.assign(blankState(),v);
-      if(document.getElementById('appWrap').style.display!=='none'){ refreshIdentity(); rerenderActive(); }
+    // Sync only the lightweight branches in real time, each on its own listener.
+    // teamPhotos is intentionally NOT listened to here, so the photo data is never
+    // part of the constant global download — it is loaded on demand (see loadTeamPhotos).
+    const SYNC_BRANCHES=['users','teams','predictions','results','koWinners','nameOverrides','koManual'];
+    SYNC_BRANCHES.forEach(b=>{
+      db.ref(b).on('value',snap=>{
+        state[b]=snap.val()||{};
+        if(document.getElementById('appWrap').style.display!=='none'){ refreshIdentity(); rerenderActive(); }
+      });
     });
     // seed admin once if no users exist yet
     await new Promise(r=>db.ref('users').once('value',s=>{ window._hasUsers=s.exists(); r(); }));
@@ -659,6 +724,36 @@ function refreshIdentity(){
   // Team creator tab shows only when the user has no team
   const tcTab=document.querySelector('.tab.teamcreator-only');
   if(tcTab)tcTab.style.display=(u&&!u.team)?'block':'none';
+  // Team photo button shows only when the user belongs to a team
+  const tpb=document.getElementById('teamPhotoBtn');
+  if(tpb)tpb.style.display=(u&&u.team&&state.teams[u.team])?'inline-block':'none';
+}
+/* Compress a picked image to <=256px square base64 and save to the team */
+function onTeamPhotoPicked(ev){
+  const file=ev.target.files&&ev.target.files[0];if(!file)return;
+  const u=currentUid?state.users[currentUid]:null;
+  if(!u||!u.team){toast('You need to be on a team first',true);return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=async function(){
+      const size=256;const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+      const ctx=canvas.getContext('2d');
+      // cover-crop to square
+      const scale=Math.max(size/img.width,size/img.height);
+      const sw=size/scale,sh=size/scale;
+      const sx=(img.width-sw)/2,sy=(img.height-sh)/2;
+      ctx.drawImage(img,sx,sy,sw,sh,0,0,size,size);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.78);
+      state.teamPhotos[u.team]=dataUrl;
+      if(fbReady)await db.ref('teamPhotos/'+u.team).set(dataUrl);else saveLocal();
+      toast('Team photo updated ✓');
+      if(document.querySelector('.tab.active').dataset.tab==='standings')renderStandings();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  ev.target.value='';
 }
 
 /* ============================================================
@@ -672,8 +767,9 @@ function showTab(tab){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+tab).classList.add('active');
   if(tab==='group')renderGroup();if(tab==='knockout')renderKnockout();
-  if(tab==='standings')renderStandings();if(tab==='admin')renderAdmin();
+  if(tab==='standings'){renderStandings();loadTeamPhotos();}if(tab==='admin')renderAdmin();
   if(tab==='teamcreator')populateTeamCreator();
+  if(tab==='grouptables')renderGroupTables();
 }
 
 /* ============================================================
@@ -800,13 +896,133 @@ function userPoints(uid){const preds=predOf(uid);let t=0;Object.keys(state.resul
 
 /* group table for bracket resolution */
 function groupTable(g){
-  const teams=GROUPS[g],ms=groupMatches(g),rec={};teams.forEach(t=>rec[t]={t,pts:0,gf:0,ga:0});let played=0;
-  ms.forEach(m=>{const r=state.results[m.id];if(!r||r.h==null||r.h==='')return;played++;rec[m.home].gf+=r.h;rec[m.home].ga+=r.a;rec[m.away].gf+=r.a;rec[m.away].ga+=r.h;if(r.h>r.a)rec[m.home].pts+=3;else if(r.h<r.a)rec[m.away].pts+=3;else{rec[m.home].pts++;rec[m.away].pts++;}});
+  const teams=GROUPS[g],ms=groupMatches(g),rec={};teams.forEach(t=>rec[t]={t,pld:0,w:0,d:0,l:0,pts:0,gf:0,ga:0});let played=0;
+  ms.forEach(m=>{const r=state.results[m.id];if(!r||r.h==null||r.h==='')return;played++;
+    rec[m.home].pld++;rec[m.away].pld++;
+    rec[m.home].gf+=r.h;rec[m.home].ga+=r.a;rec[m.away].gf+=r.a;rec[m.away].ga+=r.h;
+    if(r.h>r.a){rec[m.home].pts+=3;rec[m.home].w++;rec[m.away].l++;}
+    else if(r.h<r.a){rec[m.away].pts+=3;rec[m.away].w++;rec[m.home].l++;}
+    else{rec[m.home].pts++;rec[m.away].pts++;rec[m.home].d++;rec[m.away].d++;}});
   const ranked=teams.slice().sort((x,y)=>{const a=rec[x],b=rec[y];return b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf;});
-  return {ranked,complete:played===6};
+  return {ranked,complete:played===6,played,rec};
+}
+function renderGroupTables(){
+  const body=document.getElementById('groupTablesBody');
+  body.innerHTML=Object.keys(GROUPS).map(g=>{
+    const t=groupTable(g);
+    const rows=t.ranked.map((team,i)=>{
+      const r=t.rec[team];const gd=r.gf-r.ga;
+      const cls=i<2?'gt-row-q':i===2?'gt-row-3':'gt-row-out';
+      const posCls=i<2?'pos-q':i===2?'pos-3':'pos-out';
+      return `<tr class="${cls}">
+        <td><span class="gt-pos ${posCls}">${i+1}</span></td>
+        <td class="l"><span class="gt-team"><span class="flag">${flag(team)}</span>${disp(team)}</span></td>
+        <td>${r.pld}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
+        <td>${r.gf}:${r.ga}</td><td>${gd>0?'+':''}${gd}</td>
+        <td class="gt-pts">${r.pts}</td></tr>`;
+    }).join('');
+    return `<div class="gt-card">
+      <div class="gt-head"><span class="gt-name">Group ${g}</span><span class="gt-prog">${t.played}/6 played</span></div>
+      <table class="gt-table">
+        <thead><tr><th></th><th class="l">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>G</th><th>GD</th><th>Pts</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="gt-legend">
+        <span><span class="gt-dot" style="background:#1c9e6a"></span>Qualify</span>
+        <span><span class="gt-dot" style="background:#d99412"></span>3rd (may advance)</span>
+        <span><span class="gt-dot" style="background:#c25555"></span>Eliminated</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 function deriveKoWinners(){state.koWinners={};allKoTies().forEach(tie=>{if(state.koManual&&state.koManual[tie.id]){state.koWinners[tie.id]=state.koManual[tie.id];return;}const r=state.results[tie.id];const[tA,tB]=koResolvedTeams(tie);if(r&&r.h!=null&&tA&&tB)state.koWinners[tie.id]=r.h>=r.a?tA:tB;});}
 
+/* ---- scoring breakdown helpers ---- */
+function breakdownMatch(p,r){
+  // returns {outcome:0/3, gd:0/1, exact:0/3}
+  if(!p||p.h==null||p.h===''||!r||r.h==null)return {outcome:0,gd:0,exact:0};
+  const ro=Math.sign(r.h-r.a),po=Math.sign(p.h-p.a);
+  const outcome=ro===po?3:0;
+  const gd=((r.h-r.a)===(p.h-p.a))?1:0;
+  const exact=(r.h===p.h&&r.a===p.a)?3:0;
+  return {outcome,gd,exact};
+}
+function teamBreakdown(uids){
+  let outcome=0,gd=0,exact=0,picks=0;
+  uids.forEach(id=>{
+    const preds=predOf(id);
+    Object.keys(state.results||{}).forEach(mid=>{
+      const p=preds[mid],r=state.results[mid];
+      if(p&&p.h!=null&&p.h!==''){const b=breakdownMatch(p,r);outcome+=b.outcome;gd+=b.gd;exact+=b.exact;}
+    });
+    picks+=Object.values(preds).filter(p=>p.h!=null&&p.h!=='').length;
+  });
+  return {outcome,gd,exact,total:outcome+gd+exact,picks};
+}
+function teamAvatarHTML(tm,size){
+  const cls=size==='sm'?'team-ava':'team-ava';
+  const photo=(state.teamPhotos&&state.teamPhotos[tm.name])||null;
+  if(photo) return `<img class="${cls}" src="${photo}" alt=""/>`;
+  const initial=(tm.name||'?').charAt(0).toUpperCase();
+  return `<div class="team-ava-ph">${initial}</div>`;
+}
+let expandedTeam=null, expandPhase={};
+function toggleTeamExpand(name){
+  expandedTeam = expandedTeam===name?null:name;
+  if(expandedTeam && !expandPhase[name])expandPhase[name]='group';
+  renderStandings();
+}
+function setExpandPhase(name,phase,ev){ if(ev)ev.stopPropagation(); expandPhase[name]=phase; renderStandings(); }
+
+function expandedRowHTML(tm){
+  const phase=expandPhase[tm.name]||'group';
+  const ties = phase==='group'? allGroupMatches() : allKoTies().map(t=>{const[a,b]=koResolvedTeams(t);return {id:t.id,home:a||t.a||'TBD',away:b||t.b||'TBD'};});
+  const uids=tm.memberUids||[];
+  // build rows: only matches where there's a result OR at least one member predicted
+  const rowsHtml = ties.map(m=>{
+    const r=state.results[m.id];
+    const memberCells=uids.map(id=>{
+      const p=predOf(id)[m.id];
+      if(!p||p.h==null||p.h==='')return `<span class="pred-muted">—</span>`;
+      const b=r?breakdownMatch(p,r):null;
+      const pts=b?(b.outcome+b.gd+b.exact):null;
+      return `<span class="pred-pred">${p.h}–${p.a}</span>${pts!=null?` <span class="pred-pts">(+${pts})</span>`:''}`;
+    });
+    const anyPred=uids.some(id=>{const p=predOf(id)[m.id];return p&&p.h!=null&&p.h!=='';});
+    if(!r && !anyPred) return '';
+    const realStr = r? `${r.h}–${r.a}` : '<span class="pred-muted">—</span>';
+    return `<tr>
+      <td>${flag(m.home)} ${disp(m.home)} <span class="pred-muted">v</span> ${disp(m.away)} ${flag(m.away)}</td>
+      <td class="pred-real">${realStr}</td>
+      <td>${memberCells.join(' · ')}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+  const memberHead = uids.map(id=>state.users[id]?fullName(state.users[id]):'').filter(Boolean).join(' · ');
+  return `<div class="expand-wrap"><div class="expand-inner">
+    <div class="exp-seg">
+      <button class="${phase==='group'?'on':''}" onclick="setExpandPhase('${tm.name.replace(/'/g,"\\'")}','group',event)">Group stage</button>
+      <button class="${phase==='ko'?'on':''}" onclick="setExpandPhase('${tm.name.replace(/'/g,"\\'")}','ko',event)">Knockouts</button>
+    </div>
+    <table class="pred-table">
+      <thead><tr><th>Match</th><th>Real result</th><th>Team predictions ${memberHead?'· '+memberHead:''}</th></tr></thead>
+      <tbody>${rowsHtml||'<tr><td colspan="3" class="pred-muted">No predictions or results yet for this stage.</td></tr>'}</tbody>
+    </table>
+  </div></div>`;
+}
+
+/* Lazily load the team photos branch only when Standings is opened.
+   This keeps photos OUT of the constant realtime sync. */
+let _photosLoaded=false;
+async function loadTeamPhotos(force){
+  if(!fbReady){return;}            // demo mode keeps photos in local state already
+  if(_photosLoaded && !force){return;}
+  try{
+    const snap=await db.ref('teamPhotos').once('value');
+    state.teamPhotos=snap.val()||{};
+    _photosLoaded=true;
+    renderStandings();
+  }catch(e){ console.warn('loadTeamPhotos',e.message); }
+}
 /* ============================================================
    STANDINGS
    ============================================================ */
@@ -822,9 +1038,22 @@ function renderStandings(){
   }else{
     const teams=Object.keys(state.teams||{});
     if(!teams.length){body.innerHTML='<div class="empty"><span class="ico">👥</span>No teams yet.</div>';return;}
-    const rows=teams.map(t=>{const tm=state.teams[t];const uids=tm.memberUids||[];const pts=uids.reduce((s,id)=>s+userPoints(id),0);return {team:t,members:tm.members||[],pts};}).sort((a,b)=>b.pts-a.pts);
-    const max=Math.max(1,...rows.map(r=>r.pts));
-    body.innerHTML=`<table class="lb-table"><thead><tr><th>#</th><th>Team</th><th style="text-align:right">Points</th></tr></thead><tbody>`+rows.map((r,i)=>`<tr><td class="rankcell ${i===0?'g1':''}">${i<3?['🥇','🥈','🥉'][i]:i+1}</td><td class="teamcell"><b>${r.team}</b><div class="members">${(r.members||[]).join(' · ')}</div><div class="barwrap"><div class="bar" style="width:${Math.round(r.pts/max*100)}%"></div></div></td><td class="ptscell">${r.pts}</td></tr>`).join('')+`</tbody></table>`;
+    const rows=teams.map(t=>{const tm=state.teams[t];const bd=teamBreakdown(tm.memberUids||[]);return {tm,team:t,members:tm.members||[],bd};}).sort((a,b)=>b.bd.total-a.bd.total);
+    body.innerHTML=`<table class="lb-table">
+      <thead><tr><th>#</th><th>Team</th><th class="col-mini">Picks</th><th class="col-mini">Outcome</th><th class="col-mini">GD</th><th class="col-mini">Exact</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>`+rows.map((r,i)=>{
+        const isOpen=expandedTeam===r.team;
+        const main=`<tr class="lb-main-row" onclick="toggleTeamExpand('${r.team.replace(/'/g,"\\'")}')">
+          <td class="rankcell ${i===0?'g1':''}">${i<3?['🥇','🥈','🥉'][i]:i+1}</td>
+          <td class="teamcell"><div style="display:flex;align-items:center;gap:10px">${teamAvatarHTML(r.tm)}<div><b>${r.team}</b><span class="caret ${isOpen?'open':''}">▶</span><div class="members">${(r.members||[]).join(' · ')}</div></div></div></td>
+          <td class="col-mini">${r.bd.picks}</td>
+          <td class="col-mini">${r.bd.outcome}</td>
+          <td class="col-mini">${r.bd.gd}</td>
+          <td class="col-mini">${r.bd.exact}</td>
+          <td class="ptscell">${r.bd.total}</td></tr>`;
+        const exp=isOpen?`<tr><td class="expand-cell" colspan="7">${expandedRowHTML(r.tm)}</td></tr>`:'';
+        return main+exp;
+      }).join('')+`</tbody></table>`;
   }
 }
 
@@ -902,7 +1131,43 @@ function renderAdminTeams(){
   const body=document.getElementById('adminTeamsBody');
   const teams=Object.keys(state.teams||{});
   if(!teams.length){body.innerHTML='<p class="ph-sub" style="margin:0">No teams yet.</p>';return;}
-  body.innerHTML=teams.map(t=>{const tm=state.teams[t];const pts=(tm.memberUids||[]).reduce((s,id)=>s+userPoints(id),0);return `<div class="kv"><span><b>${t}</b><div class="members">${(tm.members||[]).join(' · ')}</div></span><span style="display:flex;gap:8px;align-items:center"><span class="pill p-pts">${pts} pts</span><button class="btn btn-ghost btn-sm" onclick="adminRenameTeam('${t.replace(/'/g,"\\'")}')">Rename</button><button class="btn btn-danger btn-sm" onclick="adminDeleteTeam('${t.replace(/'/g,"\\'")}')">Delete</button></span></div>`;}).join('');
+  body.innerHTML=teams.map(t=>{const tm=state.teams[t];const pts=(tm.memberUids||[]).reduce((s,id)=>s+userPoints(id),0);const full=(tm.memberUids||[]).length>=3;
+    return `<div class="kv"><span><b>${t}</b><div class="members">${(tm.members||[]).join(' · ')||'<i>no members</i>'}</div></span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill p-pts">${pts} pts</span>
+    <button class="btn btn-ghost btn-sm" onclick="adminAddMember('${t.replace(/'/g,"\\'")}')" ${full?'disabled title="Team is full (3)"':''}>+ Member</button>
+    <button class="btn btn-ghost btn-sm" onclick="adminRemoveMember('${t.replace(/'/g,"\\'")}')">- Member</button>
+    <button class="btn btn-ghost btn-sm" onclick="adminRenameTeam('${t.replace(/'/g,"\\'")}')">Rename</button>
+    <button class="btn btn-danger btn-sm" onclick="adminDeleteTeam('${t.replace(/'/g,"\\'")}')">Delete</button></span></div>`;}).join('');
+}
+async function adminAddMember(t){
+  const tm=state.teams[t];if(!tm)return;
+  const uids=tm.memberUids||[];
+  if(uids.length>=3){toast('Team already has 3 members',true);return;}
+  // candidates: users not already on any team
+  const free=Object.values(state.users).filter(u=>!u.team);
+  if(!free.length){toast('No free users available (everyone is on a team)',true);return;}
+  const list=free.map((u,i)=>`${i+1}. ${fullName(u)}`).join('\n');
+  const pick=prompt('Add which user to "'+t+'"? Enter a number:\n'+list);if(pick==null)return;
+  const idx=parseInt(pick.trim())-1;if(isNaN(idx)||idx<0||idx>=free.length){toast('Invalid choice',true);return;}
+  const u=free[idx];
+  tm.memberUids=[...uids,u.uid];
+  tm.members=[...(tm.members||[]),fullName(u)];
+  u.team=t;
+  if(fbReady){await db.ref('teams/'+t+'/memberUids').set(tm.memberUids);await db.ref('teams/'+t+'/members').set(tm.members);await db.ref('users/'+u.uid+'/team').set(t);}else saveLocal();
+  renderAdmin();toast(fullName(u)+' added to '+t);
+}
+async function adminRemoveMember(t){
+  const tm=state.teams[t];if(!tm)return;
+  const uids=tm.memberUids||[];
+  if(!uids.length){toast('Team has no members',true);return;}
+  const list=uids.map((id,i)=>`${i+1}. ${state.users[id]?fullName(state.users[id]):id}`).join('\n');
+  const pick=prompt('Remove which member from "'+t+'"? Enter a number:\n'+list);if(pick==null)return;
+  const idx=parseInt(pick.trim())-1;if(isNaN(idx)||idx<0||idx>=uids.length){toast('Invalid choice',true);return;}
+  const id=uids[idx];
+  tm.memberUids=uids.filter((_,i)=>i!==idx);
+  if(tm.members)tm.members=tm.members.filter((_,i)=>i!==idx);
+  if(state.users[id])state.users[id].team=null;
+  if(fbReady){await db.ref('teams/'+t+'/memberUids').set(tm.memberUids);await db.ref('teams/'+t+'/members').set(tm.members||[]);if(state.users[id])await db.ref('users/'+id+'/team').set(null);}else saveLocal();
+  renderAdmin();toast('Member removed from '+t);
 }
 async function adminCreateTeam(){
   const users=Object.values(state.users||{});
@@ -925,14 +1190,19 @@ async function adminRenameTeam(t){
   if(state.teams[nn]){toast('Name taken',true);return;}
   const tm=state.teams[t];tm.name=nn;state.teams[nn]=tm;delete state.teams[t];
   (tm.memberUids||[]).forEach(id=>{if(state.users[id])state.users[id].team=nn;});
-  if(fbReady){await db.ref('teams/'+t).remove();await db.ref('teams/'+nn).set(tm);for(const id of(tm.memberUids||[]))if(state.users[id])await db.ref('users/'+id+'/team').set(nn);}else saveLocal();
+  // move the photo (separate branch) along with the team name
+  const photo=(state.teamPhotos&&state.teamPhotos[t])||null;
+  if(photo){state.teamPhotos[nn]=photo;delete state.teamPhotos[t];}
+  if(fbReady){await db.ref('teams/'+t).remove();await db.ref('teams/'+nn).set(tm);for(const id of(tm.memberUids||[]))if(state.users[id])await db.ref('users/'+id+'/team').set(nn);
+    if(photo){await db.ref('teamPhotos/'+nn).set(photo);await db.ref('teamPhotos/'+t).remove();}}else saveLocal();
   renderAdmin();toast('Team renamed');
 }
 async function adminDeleteTeam(t){
   if(!confirm('Delete team "'+t+'"?'))return;
   const tm=state.teams[t];(tm.memberUids||[]).forEach(id=>{if(state.users[id])state.users[id].team=null;});
   delete state.teams[t];
-  if(fbReady){await db.ref('teams/'+t).remove();for(const id of(tm.memberUids||[]))if(state.users[id])await db.ref('users/'+id+'/team').set(null);}else saveLocal();
+  if(state.teamPhotos)delete state.teamPhotos[t];
+  if(fbReady){await db.ref('teams/'+t).remove();for(const id of(tm.memberUids||[]))if(state.users[id])await db.ref('users/'+id+'/team').set(null);await db.ref('teamPhotos/'+t).remove();}else saveLocal();
   renderAdmin();toast('Team deleted');
 }
 /* Roles & passwords */
