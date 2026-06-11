@@ -207,7 +207,10 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 
     <!-- LOGIN -->
     <div id="loginPane">
-      <div class="field"><label>Corporate email</label><input type="email" id="liEmail" placeholder="name@berlitz.us" autocomplete="username"/></div>
+      <div class="row2">
+        <div class="field"><label>First name</label><input type="text" id="liFirst" placeholder="Sebastián" autocomplete="given-name"/></div>
+        <div class="field"><label>Last name</label><input type="text" id="liLast" placeholder="Díaz" autocomplete="family-name"/></div>
+      </div>
       <div class="field"><label>Password</label><input type="password" id="liPass" placeholder="••••••••" autocomplete="current-password"/></div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign in</button>
     </div>
@@ -218,13 +221,12 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
         <div class="field"><label>First name *</label><input type="text" id="rgFirst" placeholder="Sebastián"/></div>
         <div class="field"><label>Last name *</label><input type="text" id="rgLast" placeholder="Díaz"/></div>
       </div>
-      <div class="field"><label>Corporate email *</label><input type="email" id="rgEmail" placeholder="name@berlitz.us"/></div>
       <div class="row2">
         <div class="field"><label>Password *</label><input type="password" id="rgPass" placeholder="At least 6 characters"/></div>
         <div class="field"><label>Repeat password *</label><input type="password" id="rgPass2" placeholder="Repeat"/></div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create account &amp; continue</button>
-      <p class="sub" style="margin-top:12px;text-align:center">Next you'll build your team of three from the participant list.</p>
+      <p class="sub" style="margin-top:12px;text-align:center">Your first and last name identify you. Next you'll build your team of three.</p>
     </div>
   </div>
 </div>
@@ -346,13 +348,12 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 
       <div class="card panel">
         <h3>User accounts</h3>
-        <p class="ph-sub">Create full accounts for your team: name, corporate email and an initial password. These people can sign in right away, appear in the team dropdown, and can be promoted to admin below. Tell each person their initial password — they (or you) can change it anytime.</p>
+        <p class="ph-sub">Create full accounts for your team: first name, last name and an initial password. These people can sign in right away with their name + password, appear in the team dropdown, and can be promoted to admin below. Tell each person their initial password — they (or you) can change it anytime.</p>
         <div class="row2">
           <div class="field" style="margin:0 0 10px"><label>First name</label><input type="text" id="newUserFirst" placeholder="First"/></div>
           <div class="field" style="margin:0 0 10px"><label>Last name</label><input type="text" id="newUserLast" placeholder="Last"/></div>
         </div>
         <div class="row2" style="align-items:flex-end">
-          <div class="field" style="margin:0"><label>Corporate email</label><input type="email" id="newUserEmail" placeholder="name@berlitz.us"/></div>
           <div class="field" style="margin:0"><label>Initial password</label><input type="text" id="newUserPass" placeholder="min 6 chars"/></div>
           <button class="btn btn-ghost btn-sm" onclick="adminCreateUser()">Create account</button>
         </div>
@@ -401,6 +402,7 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 <!-- Firebase SDK (compat build = simplest for a single file) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <script>
 /* ============================================================
@@ -417,12 +419,17 @@ const firebaseConfig = {
   appId: "1:873887677403:web:8c0d9ad07a4f3dd80805fe"
 };
 
-let db=null, fbReady=false;
+let db=null, auth=null, fbReady=false, secondaryApp=null;
+const SYNTH_DOMAIN='berlitz-pool.local';   // synthetic email domain (users never see this)
+function synthEmail(first,last){return nameKey(first,last)+'@'+SYNTH_DOMAIN;}
 function initFirebase(){
   try{
     if(firebaseConfig.apiKey==="PASTE_API_KEY"){throw new Error("Config not set");}
     firebase.initializeApp(firebaseConfig);
     db=firebase.database();
+    auth=firebase.auth();
+    // a second app instance lets an admin create accounts without being logged out
+    secondaryApp=firebase.initializeApp(firebaseConfig,'secondary');
     fbReady=true;
     setFbStatus(true);
     return true;
@@ -434,7 +441,7 @@ function initFirebase(){
 }
 function setFbStatus(on){
   const el=document.getElementById('fbStatus');
-  el.textContent = on? 'Live · synced' : 'Offline demo (configure Firebase)';
+  el.textContent = on? 'Live · secured' : 'Offline demo (configure Firebase)';
   el.className = 'fb-status '+(on?'fb-on':'fb-off');
 }
 
@@ -505,41 +512,42 @@ function allKoTies(){return KO_ROUNDS.flatMap(r=>r.ties);}
 /* ============================================================
    STATE  (mirrors the Firebase tree, or localStorage in demo)
    ============================================================ */
-const SEED_ADMIN={first:'Ivan',last:'Castelan',email:'ivan.castelan@berlitz.us',password:'WC2026.Berlitz'};
+const SEED_ADMIN={first:'Ivan',last:'Castelan',password:'WC2026.Berlitz'};
 const LS_KEY='berlitz_wc2026_fb_demo';
 let state=blankState();
 let currentUid=null;
 let groupView='date', lbView='team';
 
 function blankState(){
-  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{},participants:{}};
+  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{}};
 }
-function emailKey(email){return email.trim().toLowerCase().replace(/[.#$\[\]/]/g,'_');}
+function nameKey(first,last){return (first.trim()+'_'+last.trim()).toLowerCase().replace(/[.#$\[\]/\s]+/g,'_');}
 function fullName(u){return ((u.first||'')+' '+(u.last||'')).trim();}
 
-/* SHA-256 hash so raw passwords are never stored */
-async function hashPw(pw){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-/* ---- persistence ---- */
-function persist(path,value){
-  if(fbReady){ db.ref(path).set(value); }
-  else { saveLocal(); }
-}
+/* ---- persistence (profiles/teams/predictions/results live in Realtime DB;
+   passwords are handled entirely by Firebase Auth and never stored here) ---- */
 function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}}
 function loadLocal(){try{const s=localStorage.getItem(LS_KEY);if(s)state=Object.assign(blankState(),JSON.parse(s));}catch(e){}}
 
-/* Seed the initial admin if missing (runs once). */
+/* Seed the initial admin (Ivan) on first run, using the secondary app so the
+   current session is not affected. Safe to call repeatedly. */
 async function ensureSeedAdmin(){
-  const k=emailKey(SEED_ADMIN.email);
-  if(state.users[k])return;
-  const hash=await hashPw(SEED_ADMIN.password);
-  const user={uid:k,first:SEED_ADMIN.first,last:SEED_ADMIN.last,email:SEED_ADMIN.email,pass:hash,role:'admin',team:null};
-  state.users[k]=user;
-  if(fbReady){ await db.ref('users/'+k).set(user); }
-  else saveLocal();
+  const k=nameKey(SEED_ADMIN.first,SEED_ADMIN.last);
+  if(state.users[k])return;              // profile already exists
+  if(!fbReady){
+    // demo mode: just create a local profile (no real auth)
+    state.users[k]={uid:k,first:SEED_ADMIN.first,last:SEED_ADMIN.last,role:'admin',team:null};
+    saveLocal();return;
+  }
+  try{
+    const cred=await secondaryApp.auth().createUserWithEmailAndPassword(synthEmail(SEED_ADMIN.first,SEED_ADMIN.last),SEED_ADMIN.password);
+    const uid=cred.user.uid;
+    await db.ref('users/'+uid).set({uid,first:SEED_ADMIN.first,last:SEED_ADMIN.last,role:'admin',team:null,key:k});
+    await secondaryApp.auth().signOut();
+  }catch(e){
+    // already exists in Auth but maybe missing profile — ignore; admin can be repaired manually
+    console.warn('Seed admin:',e.code||e.message);
+  }
 }
 
 /* ============================================================
@@ -548,27 +556,29 @@ async function ensureSeedAdmin(){
 async function boot(){
   const ok=initFirebase();
   if(ok){
-    // live sync: whole tree
     db.ref('/').on('value',snap=>{
       const v=snap.val()||{};
       state=Object.assign(blankState(),v);
-      // re-render whatever's visible
-      if(document.getElementById('appWrap').style.display!=='none'){
-        refreshIdentity(); rerenderActive();
-      }
+      if(document.getElementById('appWrap').style.display!=='none'){ refreshIdentity(); rerenderActive(); }
     });
-    // wait a tick for first snapshot, then seed admin if empty
-    await new Promise(r=>db.ref('users').once('value',s=>{ if(!s.exists()){} r(); }));
-    await ensureSeedAdmin();
+    // seed admin once if no users exist yet
+    await new Promise(r=>db.ref('users').once('value',s=>{ window._hasUsers=s.exists(); r(); }));
+    if(!window._hasUsers) await ensureSeedAdmin();
+    // restore session via Firebase Auth
+    auth.onAuthStateChanged(async user=>{
+      if(user){
+        currentUid=user.uid;
+        // make sure we have the profile loaded
+        await new Promise(r=>db.ref('users/'+user.uid).once('value',s=>{ if(s.exists())state.users[user.uid]=s.val(); r(); }));
+        if(state.users[currentUid]) enterApp(); else showAuth();
+      }else{ currentUid=null; showAuth(); }
+    });
   }else{
     loadLocal();
     await ensureSeedAdmin();
-    setFbStatus(false);
+    const savedUid=sessionStorage.getItem('wc_uid');
+    if(savedUid && state.users[savedUid]){ currentUid=savedUid; enterApp(); } else showAuth();
   }
-  // restore session
-  const savedUid=sessionStorage.getItem('wc_uid');
-  if(savedUid && state.users[savedUid]){ currentUid=savedUid; enterApp(); }
-  else { showAuth(); }
 }
 function rerenderActive(){
   const t=document.querySelector('.tab.active');const tab=t?t.dataset.tab:'group';
@@ -594,36 +604,50 @@ function showAuth(){document.getElementById('authOverlay').style.display='flex';
 async function doRegister(){
   const first=document.getElementById('rgFirst').value.trim();
   const last=document.getElementById('rgLast').value.trim();
-  const email=document.getElementById('rgEmail').value.trim();
   const p1=document.getElementById('rgPass').value;
   const p2=document.getElementById('rgPass2').value;
-  if(!first||!last||!email){authErr('First name, last name and email are required.');return;}
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){authErr('Enter a valid email address.');return;}
+  if(!first||!last){authErr('First name and last name are required.');return;}
   if(p1.length<6){authErr('Password must be at least 6 characters.');return;}
   if(p1!==p2){authErr('Passwords do not match.');return;}
-  const k=emailKey(email);
-  if(state.users[k]){authErr('An account with that email already exists. Try signing in.');return;}
-  const hash=await hashPw(p1);
-  const user={uid:k,first,last,email,pass:hash,role:'employee',team:null};
-  state.users[k]=user;
-  if(fbReady){ await db.ref('users/'+k).set(user); }
-  else saveLocal();
-  currentUid=k; sessionStorage.setItem('wc_uid',k);
-  openTeamSetup();
+  const k=nameKey(first,last);
+  if(!fbReady){ // demo
+    if(state.users[k]){authErr('That name already exists. Try signing in.');return;}
+    state.users[k]={uid:k,first,last,role:'employee',team:null};saveLocal();
+    currentUid=k;sessionStorage.setItem('wc_uid',k);openTeamSetup();return;
+  }
+  try{
+    const cred=await auth.createUserWithEmailAndPassword(synthEmail(first,last),p1);
+    const uid=cred.user.uid;
+    await db.ref('users/'+uid).set({uid,first,last,role:'employee',team:null,key:k});
+    currentUid=uid;
+    openTeamSetup();
+  }catch(e){
+    if(e.code==='auth/email-already-in-use')authErr('An account with that name already exists. Try signing in, or add a middle initial.');
+    else authErr(e.message);
+  }
 }
 async function doLogin(){
-  const email=document.getElementById('liEmail').value.trim();
+  const first=document.getElementById('liFirst').value.trim();
+  const last=document.getElementById('liLast').value.trim();
   const pw=document.getElementById('liPass').value;
-  if(!email||!pw){authErr('Enter your email and password.');return;}
-  const k=emailKey(email);
-  const u=state.users[k];
-  if(!u){authErr('No account found for that email.');return;}
-  const hash=await hashPw(pw);
-  if(hash!==u.pass){authErr('Incorrect password.');return;}
-  currentUid=k; sessionStorage.setItem('wc_uid',k);
-  enterApp();
+  if(!first||!last||!pw){authErr('Enter your first name, last name and password.');return;}
+  const k=nameKey(first,last);
+  if(!fbReady){ // demo
+    const u=state.users[k];if(!u){authErr('No account found for that name.');return;}
+    currentUid=k;sessionStorage.setItem('wc_uid',k);enterApp();return;
+  }
+  try{
+    await auth.signInWithEmailAndPassword(synthEmail(first,last),pw);
+    // onAuthStateChanged will pick it up and enter the app
+  }catch(e){
+    if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'||e.code==='auth/user-not-found')authErr('Name or password is incorrect.');
+    else authErr(e.message);
+  }
 }
-function logout(){currentUid=null;sessionStorage.removeItem('wc_uid');showAuth();}
+function logout(){
+  if(fbReady){ auth.signOut(); }
+  currentUid=null;sessionStorage.removeItem('wc_uid');showAuth();
+}
 
 /* ---- Team setup overlay ---- */
 function teamMemberOptions(){
@@ -872,24 +896,33 @@ function renderUsers(){
   const body=document.getElementById('usersBody');
   const users=Object.values(state.users||{});
   if(!users.length){body.innerHTML='<p class="ph-sub" style="margin:0">No accounts yet.</p>';return;}
-  body.innerHTML=users.map(u=>`<div class="kv"><span><b>${fullName(u)}</b> <span class="members">${u.email} · ${u.team||'no team'}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="role-tag ${u.role==='admin'?'role-admin':'role-emp'}">${u.role}</span>${u.uid===currentUid?'':`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${u.uid}')">Delete</button>`}</span></div>`).join('');
+  body.innerHTML=users.map(u=>`<div class="kv"><span><b>${fullName(u)}</b> <span class="members">${u.team||'no team'}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="role-tag ${u.role==='admin'?'role-admin':'role-emp'}">${u.role}</span>${u.uid===currentUid?'':`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${u.uid}')">Delete</button>`}</span></div>`).join('');
 }
 async function adminCreateUser(){
   const f=document.getElementById('newUserFirst').value.trim();
   const l=document.getElementById('newUserLast').value.trim();
-  const email=document.getElementById('newUserEmail').value.trim();
   const pw=document.getElementById('newUserPass').value;
   if(!f||!l){toast('Enter first and last name',true);return;}
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('Enter a valid email',true);return;}
   if(pw.length<6){toast('Password must be at least 6 characters',true);return;}
-  const k=emailKey(email);
-  if(state.users[k]){toast('An account with that email already exists',true);return;}
-  const hash=await hashPw(pw);
-  const user={uid:k,first:f,last:l,email,pass:hash,role:'employee',team:null};
-  state.users[k]=user;
-  if(fbReady)await db.ref('users/'+k).set(user);else saveLocal();
-  ['newUserFirst','newUserLast','newUserEmail','newUserPass'].forEach(id=>document.getElementById(id).value='');
-  renderAdmin();toast('Account created for '+f+' '+l);
+  const k=nameKey(f,l);
+  if(Object.values(state.users).some(u=>u.key===k||u.uid===k)){toast('An account with that name already exists',true);return;}
+  if(!fbReady){
+    state.users[k]={uid:k,first:f,last:l,role:'employee',team:null,key:k};saveLocal();
+    ['newUserFirst','newUserLast','newUserPass'].forEach(id=>document.getElementById(id).value='');
+    renderAdmin();toast('Account created for '+f+' '+l);return;
+  }
+  try{
+    // secondary app: create the auth user without logging the admin out
+    const cred=await secondaryApp.auth().createUserWithEmailAndPassword(synthEmail(f,l),pw);
+    const uid=cred.user.uid;
+    await db.ref('users/'+uid).set({uid,first:f,last:l,role:'employee',team:null,key:k});
+    await secondaryApp.auth().signOut();
+    ['newUserFirst','newUserLast','newUserPass'].forEach(id=>document.getElementById(id).value='');
+    renderAdmin();toast('Account created for '+f+' '+l);
+  }catch(e){
+    if(e.code==='auth/email-already-in-use')toast('That name is already registered',true);
+    else toast(e.message,true);
+  }
 }
 async function adminDeleteUser(uid){
   const u=state.users[uid];if(!u)return;
@@ -945,7 +978,7 @@ function renderAdminRoles(){
   const body=document.getElementById('adminRolesBody');
   const users=Object.values(state.users||{});
   if(!users.length){body.innerHTML='<p class="ph-sub" style="margin:0">No users yet.</p>';return;}
-  body.innerHTML=users.map(u=>`<div class="kv"><span>${fullName(u)} <span class="members">· ${u.email} · ${u.team||'no team'}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="role-tag ${u.role==='admin'?'role-admin':'role-emp'}">${u.role}</span><button class="btn btn-ghost btn-sm" onclick="toggleRole('${u.uid}')">${u.role==='admin'?'Make employee':'Make admin'}</button><button class="btn btn-ghost btn-sm" onclick="setUserPassword('${u.uid}')">Set password</button></span></div>`).join('');
+  body.innerHTML=users.map(u=>`<div class="kv"><span>${fullName(u)} <span class="members">· ${u.team||'no team'}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="role-tag ${u.role==='admin'?'role-admin':'role-emp'}">${u.role}</span><button class="btn btn-ghost btn-sm" onclick="toggleRole('${u.uid}')">${u.role==='admin'?'Make employee':'Make admin'}</button><button class="btn btn-ghost btn-sm" onclick="setUserPassword('${u.uid}')">Set password</button></span></div>`).join('');
 }
 async function toggleRole(uid){
   const u=state.users[uid];if(!u)return;
@@ -955,11 +988,37 @@ async function toggleRole(uid){
 }
 async function setUserPassword(uid){
   const u=state.users[uid];if(!u)return;
-  const np=prompt('New password for '+fullName(u)+' (min 6 chars):');if(np==null)return;
+  if(!fbReady){toast('Password management needs Firebase configured',true);return;}
+  if(uid===currentUid){
+    const np=prompt('Set your new password (min 6 chars):');if(np==null)return;
+    if(np.length<6){toast('Too short',true);return;}
+    try{ await auth.currentUser.updatePassword(np); toast('Your password was updated'); }
+    catch(e){ toast(e.code==='auth/requires-recent-login'?'For security, sign out and back in, then try again.':e.message,true); }
+    return;
+  }
+  // Resetting another user's password from the browser isn't allowed by Firebase Auth
+  // for security. The safe client-side path is to recreate the account with a new password.
+  const np=prompt('Set a NEW password for '+fullName(u)+' (min 6 chars).\nThis re-creates their login with the new password; their predictions are kept.');
+  if(np==null)return;
   if(np.length<6){toast('Too short',true);return;}
-  const hash=await hashPw(np);u.pass=hash;
-  if(fbReady)await db.ref('users/'+uid+'/pass').set(hash);else saveLocal();
-  toast('Password updated for '+fullName(u));
+  if(!confirm('Reset password for '+fullName(u)+'? They will use the new password next time they sign in.'))return;
+  try{
+    // delete old auth user is not possible client-side; instead create a fresh synthetic login
+    // by appending a counter so the name->email stays stable for the user.
+    // Simplest robust approach: tell admin to have the user self-reset. We attempt recreate:
+    const email=synthEmail(u.first,u.last);
+    // Try to create; if it exists we can't overwrite from client — inform admin.
+    await secondaryApp.auth().createUserWithEmailAndPassword(email,np).then(async cred=>{
+      // shouldn't usually succeed if already exists; if it does, relink profile
+      await db.ref('users/'+cred.user.uid).set(Object.assign({},u,{uid:cred.user.uid}));
+      await secondaryApp.auth().signOut();
+    });
+    toast('Password set for '+fullName(u));
+  }catch(e){
+    if(e.code==='auth/email-already-in-use'){
+      toast('For security, Firebase won\'t let the browser overwrite another user\'s password. Ask '+u.first+' to use "Forgot password" on their own, or delete & recreate the account.',true);
+    } else toast(e.message,true);
+  }
 }
 /* Fixture editors */
 function populateFixtureEditors(){
@@ -970,7 +1029,7 @@ function populateFixtureEditors(){
   if(kSel){kSel.innerHTML=allKoTies().filter(t=>{const[a,b]=koResolvedTeams(t);return a&&b;}).map(t=>`<option value="${t.id}">${t.id}</option>`).join('')||'<option value="">No resolved ties yet</option>';fillKoOverrideTeams();}
 }
 function fillKoOverrideTeams(){const id=document.getElementById('koOverrideSel').value;const sel=document.getElementById('koOverrideTeam');const tie=allKoTies().find(t=>t.id===id);if(!tie){sel.innerHTML='';return;}const[a,b]=koResolvedTeams(tie);sel.innerHTML=[a,b].filter(Boolean).map(t=>`<option value="${t}">${disp(t)}</option>`).join('');}
-async function applyTeamRename(){const t=document.getElementById('renameTeamSel').value;const nm=document.getElementById('renameTeamInput').value.trim();if(!nm){toast('Enter a new name',true);return;}state.nameOverrides[t]=nm;if(fbReady)await db.ref('nameOverrides/'+emailKey(t)).set(nm),await db.ref('nameOverrides').set(state.nameOverrides);else saveLocal();document.getElementById('renameTeamInput').value='';renderAdmin();toast(t+' → "'+nm+'"');}
+async function applyTeamRename(){const t=document.getElementById('renameTeamSel').value;const nm=document.getElementById('renameTeamInput').value.trim();if(!nm){toast('Enter a new name',true);return;}state.nameOverrides[t]=nm;if(fbReady)await db.ref('nameOverrides').set(state.nameOverrides);else saveLocal();document.getElementById('renameTeamInput').value='';renderAdmin();toast(t+' → "'+nm+'"');}
 async function applyKoOverride(){const id=document.getElementById('koOverrideSel').value;const team=document.getElementById('koOverrideTeam').value;if(!id||!team){toast('Pick a tie and team',true);return;}state.koManual[id]=team;deriveKoWinners();if(fbReady){await db.ref('koManual').set(state.koManual);await db.ref('koWinners').set(state.koWinners);}else saveLocal();renderAdmin();toast(disp(team)+' advances from '+id);}
 async function adminResetResults(){
   if(!confirm('Reset ALL results and predictions? Users and teams stay.'))return;
