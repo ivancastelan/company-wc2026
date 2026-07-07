@@ -561,10 +561,10 @@ const R32=[
   {id:'M85',a:'Argentina',b:'Cape Verde',date:'2026-07-03',et:'18:00'},{id:'M86',a:'Australia',b:'Egypt',date:'2026-07-03',et:'14:00'},
   {id:'M87',a:'Switzerland',b:'Algeria',date:'2026-07-02',et:'23:00'},{id:'M88',a:'Colombia',b:'Ghana',date:'2026-07-03',et:'21:30'}
 ];
-const R16=[{id:'M89',from:['M73','M74']},{id:'M90',from:['M75','M76']},{id:'M91',from:['M77','M78']},{id:'M92',from:['M79','M80']},{id:'M93',from:['M81','M82']},{id:'M94',from:['M83','M84']},{id:'M95',from:['M85','M86']},{id:'M96',from:['M87','M88']}];
-const QF=[{id:'M97',from:['M89','M90']},{id:'M98',from:['M91','M92']},{id:'M99',from:['M93','M94']},{id:'M100',from:['M95','M96']}];
-const SF=[{id:'M101',from:['M97','M98']},{id:'M102',from:['M99','M100']}];
-const FIN=[{id:'M104',from:['M101','M102']}];
+const R16=[{id:'M89',from:['M73','M74'],date:'2026-07-04',et:'12:00'},{id:'M90',from:['M75','M76'],date:'2026-07-04',et:'16:00'},{id:'M91',from:['M77','M78'],date:'2026-07-05',et:'12:00'},{id:'M92',from:['M79','M80'],date:'2026-07-05',et:'16:00'},{id:'M93',from:['M81','M82'],date:'2026-07-06',et:'15:00'},{id:'M94',from:['M83','M84'],date:'2026-07-06',et:'19:00'},{id:'M95',from:['M85','M86'],date:'2026-07-07',et:'17:00'},{id:'M96',from:['M87','M88'],date:'2026-07-07',et:'21:00'}];
+const QF=[{id:'M97',from:['M89','M90'],date:'2026-07-09',et:'16:00'},{id:'M98',from:['M91','M92'],date:'2026-07-10',et:'15:00'},{id:'M99',from:['M93','M94'],date:'2026-07-11',et:'17:00'},{id:'M100',from:['M95','M96'],date:'2026-07-11',et:'21:00'}];
+const SF=[{id:'M101',from:['M97','M98'],date:'2026-07-14',et:'15:00'},{id:'M102',from:['M99','M100'],date:'2026-07-15',et:'15:00'}];
+const FIN=[{id:'M104',from:['M101','M102'],date:'2026-07-19',et:'15:00'}];
 const KO_ROUNDS=[{name:'Round of 32',ties:R32},{name:'Round of 16',ties:R16},{name:'Quarter-finals',ties:QF},{name:'Semi-finals',ties:SF},{name:'Final',ties:FIN}];
 function allKoTies(){return KO_ROUNDS.flatMap(r=>r.ties);}
 
@@ -860,8 +860,10 @@ function renderKnockout(){
   const u=currentUid?state.users[currentUid]:null;
   document.getElementById('bracketBody').innerHTML=KO_ROUNDS.map(r=>`<div class="round"><div class="round-title">${r.name}</div>`+r.ties.map(tie=>{
     const[tA,tB]=koResolvedTeams(tie);
-    const labelA=tA?disp(tA):(tie.a||'TBD');const labelB=tB?disp(tB):(tie.b||'TBD');
-    const locked=tie.date?isLocked(`${tie.date}T${tie.et}:00-04:00`):false;
+    const isSlot=s=>!s||s==='3rd'||/^([12])([A-L])$/.test(s)||/^W?M?\d/.test(s);
+    const labelA=tA?disp(tA):(isSlot(tie.a)?'TBD':(tie.a||'TBD'));
+    const labelB=tB?disp(tB):(isSlot(tie.b)?'TBD':(tie.b||'TBD'));
+    const locked=tie.date?isLocked(`${tie.date}T${tie.et}:00-04:00`):true;
     const preds=currentUid?predOf(currentUid):{};const p=preds[tie.id];const editsUsed=p?(p.edits||0):0;
     const canEnter=!!u&&tA&&tB&&!locked&&editsUsed<1;const dis=canEnter?'':'disabled';
     const hv=p&&p.h!=null?p.h:'';const av=p&&p.a!=null?p.a:'';
@@ -890,6 +892,8 @@ async function savePredictions(scope){
     const kk=scope==='group'?m.kickoffUTC:(m.date?`${m.date}T${m.et}:00-04:00`:null);
     const h=document.getElementById('ph_'+m.id),a=document.getElementById('pa_'+m.id);
     if(!h||!a||h.value===''||a.value==='')return;
+    // Knockout tie with no scheduled date = treat as locked (fail-safe, never editable blindly)
+    if(scope==='ko'&&!kk){return;}
     if(isLocked(kk))return;
     const ex=preds[m.id];const editsUsed=ex?(ex.edits||0):0;
     const nh=parseInt(h.value),na=parseInt(a.value);
