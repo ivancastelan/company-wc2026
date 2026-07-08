@@ -343,6 +343,14 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
   <section class="section" id="sec-knockout">
     <div class="section-head"><h2>Knockout Bracket</h2></div>
     <p class="section-sub">Round of 32 follows the official FIFA 2026 bracket. When the admin records group results, qualified teams auto-fill here. Predict any tie that already has both teams. Same lock rule applies.</p>
+
+    <!-- PODIUM PREDICTION -->
+    <div class="card panel" id="podiumCard" style="margin-bottom:18px;border:2px solid var(--gold)">
+      <h3 style="color:var(--gold)">🏆 Podium prediction — one per team</h3>
+      <p class="ph-sub" id="podiumSub">Pick the tournament Champion, Runner-up and Third place from the quarter-finalists. <b>One submission per team, by any member, and it can't be changed once submitted.</b> Scoring at tournament end: all 3 correct = <b>+50</b> · 2 correct = <b>+30</b> · 1 correct = <b>+15</b>.</p>
+      <div id="podiumBody"></div>
+    </div>
+
     <div class="bracket-scroll"><div class="bracket" id="bracketBody"></div></div>
     <div class="savebar" id="koSavebar">
       <span class="savehint" id="koSaveHint"></span>
@@ -561,7 +569,7 @@ const R32=[
   {id:'M85',a:'Argentina',b:'Cape Verde',date:'2026-07-03',et:'18:00'},{id:'M86',a:'Australia',b:'Egypt',date:'2026-07-03',et:'14:00'},
   {id:'M87',a:'Switzerland',b:'Algeria',date:'2026-07-02',et:'23:00'},{id:'M88',a:'Colombia',b:'Ghana',date:'2026-07-03',et:'21:30'}
 ];
-const R16=[{id:'M89',from:['M73','M74'],date:'2026-07-04',et:'12:00'},{id:'M90',from:['M75','M76'],date:'2026-07-04',et:'16:00'},{id:'M91',from:['M77','M78'],date:'2026-07-05',et:'12:00'},{id:'M92',from:['M79','M80'],date:'2026-07-05',et:'16:00'},{id:'M93',from:['M81','M82'],date:'2026-07-06',et:'15:00'},{id:'M94',from:['M83','M84'],date:'2026-07-06',et:'19:00'},{id:'M95',from:['M85','M86'],date:'2026-07-07',et:'12:00'},{id:'M96',from:['M87','M88'],date:'2026-07-07',et:'16:00'}];
+const R16=[{id:'M89',from:['M73','M74'],date:'2026-07-04',et:'12:00'},{id:'M90',from:['M75','M76'],date:'2026-07-04',et:'16:00'},{id:'M91',from:['M77','M78'],date:'2026-07-05',et:'12:00'},{id:'M92',from:['M79','M80'],date:'2026-07-05',et:'16:00'},{id:'M93',from:['M81','M82'],date:'2026-07-06',et:'15:00'},{id:'M94',from:['M83','M84'],date:'2026-07-06',et:'19:00'},{id:'M95',from:['M85','M86'],date:'2026-07-07',et:'17:00'},{id:'M96',from:['M87','M88'],date:'2026-07-07',et:'21:00'}];
 const QF=[{id:'M97',from:['M89','M90'],date:'2026-07-09',et:'16:00'},{id:'M98',from:['M91','M92'],date:'2026-07-10',et:'15:00'},{id:'M99',from:['M93','M94'],date:'2026-07-11',et:'17:00'},{id:'M100',from:['M95','M96'],date:'2026-07-11',et:'21:00'}];
 const SF=[{id:'M101',from:['M97','M98'],date:'2026-07-14',et:'15:00'},{id:'M102',from:['M99','M100'],date:'2026-07-15',et:'15:00'}];
 const TP=[{id:'M103',from:['M101','M102'],losers:true,date:'2026-07-18',et:'17:00'}];
@@ -579,7 +587,7 @@ let currentUid=null;
 let groupView='date', lbView='team';
 
 function blankState(){
-  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{},teamPhotos:{}};
+  return {users:{},teams:{},predictions:{},results:{},koWinners:{},nameOverrides:{},koManual:{},teamPhotos:{},podium:{}};
 }
 function nameKey(first,last){return (first.trim()+'_'+last.trim()).toLowerCase().replace(/[.#$\[\]/\s]+/g,'_');}
 function fullName(u){return ((u.first||'')+' '+(u.last||'')).trim();}
@@ -619,7 +627,7 @@ async function boot(){
     // Sync only the lightweight branches in real time, each on its own listener.
     // teamPhotos is intentionally NOT listened to here, so the photo data is never
     // part of the constant global download — it is loaded on demand (see loadTeamPhotos).
-    const SYNC_BRANCHES=['users','teams','predictions','results','koWinners','nameOverrides','koManual'];
+    const SYNC_BRANCHES=['users','teams','predictions','results','koWinners','nameOverrides','koManual','podium'];
     SYNC_BRANCHES.forEach(b=>{
       db.ref(b).on('value',snap=>{
         state[b]=snap.val()||{};
@@ -782,7 +790,7 @@ function showTab(tab){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+tab).classList.add('active');
-  if(tab==='group')renderGroup();if(tab==='knockout')renderKnockout();
+  if(tab==='group')renderGroup();if(tab==='knockout'){renderKnockout();renderPodium();}
   if(tab==='standings'){renderStandings();loadTeamPhotos();}if(tab==='admin')renderAdmin();
   if(tab==='teamcreator')populateTeamCreator();
   if(tab==='grouptables')renderGroupTables();
@@ -958,6 +966,107 @@ function renderGroupTables(){
 }
 function deriveKoWinners(){state.koWinners={};allKoTies().forEach(tie=>{if(state.koManual&&state.koManual[tie.id]){state.koWinners[tie.id]=state.koManual[tie.id];return;}const r=state.results[tie.id];const[tA,tB]=koResolvedTeams(tie);if(r&&r.h!=null&&tA&&tB)state.koWinners[tie.id]=r.h>=r.a?tA:tB;});}
 
+/* ============================================================
+   PODIUM PREDICTION (Champion / Runner-up / Third) — one per team
+   ============================================================ */
+/* The 8 quarter-finalists = the resolved teams in the QF ties. */
+function quarterfinalists(){
+  const teams=[];
+  QF.forEach(t=>{const[a,b]=koResolvedTeams(t);if(a)teams.push(a);if(b)teams.push(b);});
+  return [...new Set(teams)];
+}
+/* Actual final podium from real results (once played). */
+function actualPodium(){
+  const finW=state.koWinners['M104'];                 // champion = winner of final
+  const fin=allKoTies().find(t=>t.id==='M104');
+  let runner=null;
+  if(finW&&fin){const[a,b]=koResolvedTeams(fin);runner=finW===a?b:(finW===b?a:null);}
+  const third=state.koWinners['M103']||null;          // third = winner of 3rd-place match
+  return {champion:finW||null,runner:runner,third:third};
+}
+function podiumPoints(teamName){
+  const pick=state.podium&&state.podium[teamName];
+  if(!pick)return 0;
+  const act=actualPodium();
+  if(!act.champion&&!act.runner&&!act.third)return 0; // tournament not decided yet
+  let hits=0;
+  if(pick.champion&&act.champion&&pick.champion===act.champion)hits++;
+  if(pick.runner&&act.runner&&pick.runner===act.runner)hits++;
+  if(pick.third&&act.third&&pick.third===act.third)hits++;
+  return hits===3?50:hits===2?30:hits===1?15:0;
+}
+function renderPodium(){
+  const body=document.getElementById('podiumBody');
+  const u=currentUid?state.users[currentUid]:null;
+  if(!u){body.innerHTML='<p class="ph-sub" style="margin:0">Sign in to make a podium prediction.</p>';return;}
+  if(!u.team){body.innerHTML='<p class="ph-sub" style="margin:0">Join a team first — the podium prediction is one per team.</p>';return;}
+  const qfs=quarterfinalists();
+  const existing=state.podium&&state.podium[u.team];
+  // Already submitted -> locked view
+  if(existing){
+    const act=actualPodium();
+    const line=(label,pick)=>{
+      const decided=act.champion||act.runner||act.third;
+      let mark='';
+      if(decided){const actv=label==='Champion'?act.champion:label==='Runner-up'?act.runner:act.third;
+        mark=pick===actv&&actv?' <span class="pill p-pts">✓ correct</span>':(actv?` <span class="pill p-nopred">actual: ${disp(actv)}</span>`:'');}
+      return `<div class="kv"><span><b>${label}</b></span><span>${flag(pick)} ${disp(pick)}${mark}</span></div>`;
+    };
+    const pts=podiumPoints(u.team);
+    body.innerHTML=`<div class="note" style="margin-bottom:12px">Your team's podium is <b>locked in</b> (submitted by ${existing.byName||'a member'}). It can't be changed.</div>
+      ${line('Champion',existing.champion)}${line('Runner-up',existing.runner)}${line('Third place',existing.third)}
+      <div class="kv"><span><b>Podium points so far</b></span><span class="pill p-pts">+${pts}</span></div>`;
+    return;
+  }
+  // Not submitted yet
+  if(qfs.length<3){
+    body.innerHTML=`<p class="ph-sub" style="margin:0">The quarter-finalists aren't set yet. This becomes available once the quarter-final teams are known (currently ${qfs.length}/8 known).</p>`;
+    return;
+  }
+  const opt=(sel)=>`<option value="">— choose —</option>`+qfs.map(t=>`<option value="${t}" ${sel===t?'selected':''}>${disp(t)}</option>`).join('');
+  body.innerHTML=`
+    <div class="row2" style="gap:12px">
+      <div class="field"><label>🥇 Champion</label><select class="gsel" id="podChampion" onchange="onPodiumChange()">${opt()}</select></div>
+      <div class="field"><label>🥈 Runner-up</label><select class="gsel" id="podRunner" onchange="onPodiumChange()">${opt()}</select></div>
+      <div class="field"><label>🥉 Third place</label><select class="gsel" id="podThird" onchange="onPodiumChange()">${opt()}</select></div>
+    </div>
+    <div class="auth-err" id="podErr"></div>
+    <button class="btn btn-gold" onclick="submitPodium()">Submit podium (final — no edits)</button>`;
+  onPodiumChange();
+}
+/* Remove already-picked teams from the other two dropdowns. */
+function onPodiumChange(){
+  const ids=['podChampion','podRunner','podThird'];
+  const sels=ids.map(id=>document.getElementById(id)).filter(Boolean);
+  if(sels.length<3)return;
+  const chosen=sels.map(s=>s.value);
+  const qfs=quarterfinalists();
+  sels.forEach((sel,i)=>{
+    const mine=sel.value;
+    const taken=chosen.filter((v,j)=>j!==i&&v); // picked in the other two
+    sel.innerHTML=`<option value="">— choose —</option>`+qfs.filter(t=>!taken.includes(t)).map(t=>`<option value="${t}" ${mine===t?'selected':''}>${disp(t)}</option>`).join('');
+  });
+}
+async function submitPodium(){
+  const u=currentUid?state.users[currentUid]:null;
+  if(!u||!u.team)return;
+  if(state.podium&&state.podium[u.team]){toast('Your team already submitted a podium',true);return;}
+  const champion=document.getElementById('podChampion').value;
+  const runner=document.getElementById('podRunner').value;
+  const third=document.getElementById('podThird').value;
+  const err=document.getElementById('podErr');
+  const showErr=m=>{err.textContent=m;err.className='auth-err show';};
+  if(!champion||!runner||!third){showErr('Pick all three positions.');return;}
+  if(new Set([champion,runner,third]).size!==3){showErr('The three picks must be different teams.');return;}
+  if(!confirm('Submit your team\'s podium?\n\n🥇 '+disp(champion)+'\n🥈 '+disp(runner)+'\n🥉 '+disp(third)+'\n\nThis is FINAL and cannot be edited.'))return;
+  const entry={champion,runner,third,byUid:currentUid,byName:fullName(u),ts:Date.now()};
+  state.podium[u.team]=entry;
+  if(fbReady)await db.ref('podium/'+u.team).set(entry);else saveLocal();
+  toast('Podium submitted for '+u.team+' ✓');
+  renderPodium();
+  if(document.querySelector('.tab.active').dataset.tab==='standings')renderStandings();
+}
+
 /* ---- scoring breakdown helpers ---- */
 function breakdownMatch(p,r){
   // returns {outcome:0/3, gd:0/1, exact:0/3}
@@ -1083,9 +1192,9 @@ function renderStandings(){
   }else{
     const teams=Object.keys(state.teams||{});
     if(!teams.length){body.innerHTML='<div class="empty"><span class="ico">👥</span>No teams yet.</div>';return;}
-    const rows=teams.map(t=>{const tm=state.teams[t];const bd=teamBreakdown(tm.memberUids||[]);return {tm,team:t,members:tm.members||[],bd};}).sort((a,b)=>b.bd.total-a.bd.total);
+    const rows=teams.map(t=>{const tm=state.teams[t];const bd=teamBreakdown(tm.memberUids||[]);const pod=podiumPoints(t);return {tm,team:t,members:tm.members||[],bd,pod,grand:bd.total+pod};}).sort((a,b)=>b.grand-a.grand);
     body.innerHTML=`<table class="lb-table">
-      <thead><tr><th>#</th><th>Team</th><th class="col-mini">Picks</th><th class="col-mini">Outcome</th><th class="col-mini">GD</th><th class="col-mini">Exact</th><th style="text-align:right">Total</th></tr></thead>
+      <thead><tr><th>#</th><th>Team</th><th class="col-mini">Picks</th><th class="col-mini">Outcome</th><th class="col-mini">GD</th><th class="col-mini">Exact</th><th class="col-mini">Podium</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>`+rows.map((r,i)=>{
         const isOpen=expandedTeam===r.team;
         const main=`<tr class="lb-main-row" onclick="toggleTeamExpand('${r.team.replace(/'/g,"\\'")}')">
@@ -1095,8 +1204,9 @@ function renderStandings(){
           <td class="col-mini">${r.bd.outcome}</td>
           <td class="col-mini">${r.bd.gd}</td>
           <td class="col-mini">${r.bd.exact}</td>
-          <td class="ptscell">${r.bd.total}</td></tr>`;
-        const exp=isOpen?`<tr><td class="expand-cell" colspan="7">${expandedRowHTML(r.tm)}</td></tr>`:'';
+          <td class="col-mini">${r.pod?('+'+r.pod):'—'}</td>
+          <td class="ptscell">${r.grand}</td></tr>`;
+        const exp=isOpen?`<tr><td class="expand-cell" colspan="8">${expandedRowHTML(r.tm)}</td></tr>`:'';
         return main+exp;
       }).join('')+`</tbody></table>`;
   }
