@@ -178,6 +178,7 @@ select.gsel{font-family:var(--sans);font-size:13px;padding:7px 11px;border:1px s
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.err{background:var(--red-pill-ink)}
 .note{font-size:12px;color:var(--ink-soft);background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--pitch);border-radius:8px;padding:10px 13px;margin-bottom:16px}
+.note-warn{border-left-color:#d99412}
 .note b{color:var(--ink)}
 
 /* Group tables */
@@ -969,6 +970,23 @@ function deriveKoWinners(){state.koWinners={};allKoTies().forEach(tie=>{if(state
 /* ============================================================
    PODIUM PREDICTION (Champion / Runner-up / Third) — one per team
    ============================================================ */
+/* Submission window: opens at this instant (ET) and stays open for 48 hours. */
+const PODIUM_OPENS='2026-07-08T10:00:00-04:00';
+const PODIUM_WINDOW_HOURS=48;
+function podiumOpensAt(){return new Date(PODIUM_OPENS).getTime();}
+function podiumClosesAt(){return podiumOpensAt()+PODIUM_WINDOW_HOURS*3600*1000;}
+function podiumWindowState(){
+  const now=Date.now();
+  if(now<podiumOpensAt())return 'before';
+  if(now>=podiumClosesAt())return 'closed';
+  return 'open';
+}
+function podiumCloseLocalStr(){
+  return new Date(podiumClosesAt()).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function podiumOpenLocalStr(){
+  return new Date(podiumOpensAt()).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
 /* The 8 quarter-finalists = the resolved teams in the QF ties. */
 function quarterfinalists(){
   const teams=[];
@@ -1023,8 +1041,19 @@ function renderPodium(){
     body.innerHTML=`<p class="ph-sub" style="margin:0">The quarter-finalists aren't set yet. This becomes available once the quarter-final teams are known (currently ${qfs.length}/8 known).</p>`;
     return;
   }
+  const win=podiumWindowState();
+  if(win==='before'){
+    body.innerHTML=`<div class="note" style="margin:0">The podium prediction opens on <b>${podiumOpenLocalStr()}</b> (your local time) and stays open for 48 hours. Check back then.</div>`;
+    return;
+  }
+  if(win==='closed'){
+    body.innerHTML=`<div class="note note-warn" style="margin:0">The 48-hour podium window closed on <b>${podiumCloseLocalStr()}</b>. Your team didn't submit a podium in time, so it scores <b>0 podium points</b>.</div>`;
+    return;
+  }
+  // window is OPEN
   const opt=(sel)=>`<option value="">— choose —</option>`+qfs.map(t=>`<option value="${t}" ${sel===t?'selected':''}>${disp(t)}</option>`).join('');
   body.innerHTML=`
+    <div class="note" style="margin-bottom:12px">⏳ Window open until <b>${podiumCloseLocalStr()}</b> (your local time). One submission per team — final, no edits.</div>
     <div class="row2" style="gap:12px">
       <div class="field"><label>🥇 Champion</label><select class="gsel" id="podChampion" onchange="onPodiumChange()">${opt()}</select></div>
       <div class="field"><label>🥈 Runner-up</label><select class="gsel" id="podRunner" onchange="onPodiumChange()">${opt()}</select></div>
@@ -1051,6 +1080,8 @@ async function submitPodium(){
   const u=currentUid?state.users[currentUid]:null;
   if(!u||!u.team)return;
   if(state.podium&&state.podium[u.team]){toast('Your team already submitted a podium',true);return;}
+  const win=podiumWindowState();
+  if(win!=='open'){toast(win==='before'?'The podium window hasn\'t opened yet':'The podium window has closed',true);renderPodium();return;}
   const champion=document.getElementById('podChampion').value;
   const runner=document.getElementById('podRunner').value;
   const third=document.getElementById('podThird').value;
